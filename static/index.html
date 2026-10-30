@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>台股追蹤引擎</title>
-  <link rel="stylesheet" href="/static/style.css?v=0.2" />
+  <link rel="stylesheet" href="/static/style.css?v=0.3" />
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -86,6 +86,39 @@
           <div class="mk-block"><h3>跌幅前 15</h3><ol id="mk-losers" class="movers"></ol></div>
           <div class="mk-block"><h3>成交金額前 10</h3><ol id="mk-turnover" class="movers"></ol></div>
         </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- screener -->
+    <section class="panel screener" id="screener">
+      <div class="panel-head">
+        <h2>選股掃描</h2>
+        <div class="market-nav">
+          <select id="sc-preset"></select>
+          <select id="sc-date"></select>
+          <label class="muted small">成交額 ≥ <input id="sc-turnover" type="number" value="0.5" step="0.1" min="0" style="width:4.5em" /> 億</label>
+          <button id="btn-screen-run">重新掃描</button>
+          <button id="btn-screen-notify" class="ghost" title="掃描並把前 10 名推播到已設定的通知管道">掃描並通知</button>
+        </div>
+      </div>
+      <p class="hint" id="sc-info">全市場流動性合格的股票依因子百分位排名加權計分（0–100）。分數是相對排名，不是機率；用右側標籤理解每檔為什麼入選，再決定是否加入追蹤池。</p>
+      <div id="sc-empty" class="empty">尚未掃描。先確定盤面分化有資料，再按「重新掃描」。</div>
+      <div class="table-wrap tall hidden" id="sc-wrap">
+        <table id="sc-table">
+          <thead>
+            <tr>
+              <th>#</th><th>代號</th><th>名稱</th><th>類股</th>
+              <th class="num">收盤</th><th class="num">今日%</th>
+              <th class="num" title="20 日漲幅減去加權指數同期漲幅">RS20</th>
+              <th class="num" title="收盤 / 前 20 日最高">突破</th>
+              <th class="num" title="今日成交量 / 20 日均量">量能</th>
+              <th class="num" title="外資 5 日淨買超佔 5 日成交量">外資5日</th>
+              <th class="num" title="投信 5 日淨買超佔 5 日成交量">投信5日</th>
+              <th class="num">分數</th><th>訊號</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </section>
 
@@ -172,6 +205,6 @@
   </main>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="/static/app.js?v=0.2"></script>
+  <script src="/static/app.js?v=0.3"></script>
 </body>
 </html>

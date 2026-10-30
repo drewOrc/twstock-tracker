@@ -60,6 +60,12 @@ def main(argv: list[str] | None = None) -> int:
     mk = sub.add_parser("market", help="fetch whole-market data for breadth / sector analysis")
     mk.add_argument("--days", type=int, default=1, help="backfill this many business days (default: latest only)")
 
+    sc = sub.add_parser("screen", help="run the multi-factor stock screener on the latest market day")
+    sc.add_argument("--preset", default="balanced", help="balanced | momentum | chips | contrarian")
+    sc.add_argument("--top", type=int, default=20)
+    sc.add_argument("--min-turnover", type=float, default=50_000_000)
+    sc.add_argument("--notify", action="store_true")
+
     sub.add_parser("quote", help="poll realtime quotes once")
     sub.add_parser("alerts", help="evaluate daily alert rules now")
     sub.add_parser("notify-test", help="send a test notification to all configured channels")
@@ -72,12 +78,12 @@ def main(argv: list[str] | None = None) -> int:
         uvicorn.run("app.main:app", host=args.host, port=args.port, reload=args.reload)
         return 0
 
+    from app import scheduler as sched
     from app.db import init_db, session_scope
     from app.models import WatchlistItem
     from app.services import alerts
     from app.services import market_data as md
     from app.services.notifier import notifier
-    from app import scheduler as sched
 
     init_db()
 
@@ -163,6 +169,17 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  強勢 {s['name']:<10} {s['avg_pct']:+.2f}%  ({s['advance']}/{s['count']})")
             for s in b["sectors"][-5:]:
                 print(f"  弱勢 {s['name']:<10} {s['avg_pct']:+.2f}%  ({s['advance']}/{s['count']})")
+        return 0
+
+    if args.cmd == "screen":
+        from app.services import screener
+
+        with session_scope() as db:
+            r = screener.run_screener(db, preset=args.preset, min_turnover=args.min_turnover, top=args.top, notify=args.notify)
+        print(f"{r['date']}  {r.get('label', r['preset'])}  universe={r['universe']}")
+        for x in r["results"]:
+            fx = x["factors"]
+            print(f"{x['rank']:>3}. {x['code']:<6} {(fx.get('name') or '')[:6]:<7} {fx.get('sector_name') or '':<8} {x['score']:5.1f}  {fx.get('pct') if fx.get('pct') is not None else '-':>6}%  {' / '.join(x['tags'])}")
         return 0
 
     if args.cmd == "quote":

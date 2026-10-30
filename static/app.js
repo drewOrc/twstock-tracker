@@ -539,9 +539,119 @@
     try { await api("/api/jobs/market_backfill/run", { method: "POST" }); toast("回補 20 日已在背景開始，約 1–2 分鐘"); setTimeout(() => { loadMarket(); loadRuns(); }, 90000); } catch (err) { toast(err.message, true); }
   });
 
+  // ------------------------------------------------------------------ screener (選股掃描)
+  const sc = { presets: [], factors: {}, preset: "balanced", date: null, dates: [] };
+
+  async function loadScreenerMeta() {
+    const m = await api("/api/screener/presets");
+    sc.presets = m.presets;
+    sc.factors = m.factors;
+    $("#sc-preset").innerHTML = sc.presets.map((p) => `<option value="${p.key}">${fmt.esc(p.label)}</option>`).join("");
+    $("#sc-preset").value = sc.preset;
+  }
+
+  async function loadScreener() {
+    try {
+      sc.dates = await api(`/api/screener/dates?preset=${sc.preset}`);
+      const sel = $("#sc-date");
+      sel.innerHTML = sc.dates.map((d) => `<option value="${d}">${d}</option>`).join("");
+      if (!sc.date || !sc.dates.includes(sc.date)) sc.date = sc.dates[0] || null;
+      if (sc.date) sel.value = sc.date;
+      if (!sc.date) { $("#sc-empty").classList.remove("hidden"); $("#sc-wrap").classList.add("hidden"); return; }
+      const r = await api(`/api/screener?preset=${sc.preset}&date=${sc.date}&limit=50`);
+      renderScreener(r);
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+
+  const tagClass = (t) => (/外資|投信|融資/.test(t) ? "chip" : /新高|量能|逆勢/.test(t) ? "hot" : "");
+  const ratioPct = (v) => (v === null || v === undefined ? "–" : `<span class="${fmt.cls(v)}">${fmt.signed(v * 100, 1)}%</span>`);
+
+  function renderScreener(r) {
+    const rows = r.results || [];
+    $("#sc-empty").classList.toggle("hidden", rows.length > 0);
+    $("#sc-wrap").classList.toggle("hidden", rows.length === 0);
+    const watched = new Set(state.watchlist.map((w) => w.code));
+    $("#sc-table tbody").innerHTML = rows
+      .map((x) => {
+        const f = x.factors || {};
+        return `<tr data-code="${x.code}" class="sc-row">
+          <td class="muted">${x.rank}</td>
+          <td><b>${x.code}</b></td>
+          <td>${fmt.esc(f.name || "")}</td>
+          <td class="muted">${fmt.esc(f.sector_name || "")}</td>
+          <td class="num">${fmt.num(f.close)}</td>
+          <td class="num ${fmt.cls(f.pct)}">${f.pct === null || f.pct === undefined ? "–" : fmt.signed(f.pct, 2) + "%"}</td>
+          <td class="num ${fmt.cls(f.rs20)}">${f.rs20 === null || f.rs20 === undefined ? "–" : fmt.signed(f.rs20, 1) + "%"}</td>
+          <td class="num">${f.breakout === null || f.breakout === undefined ? "–" : fmt.num(f.breakout, 2)}</td>
+          <td class="num">${f.vol_ratio === null || f.vol_ratio === undefined ? "–" : fmt.num(f.vol_ratio, 1) + "x"}</td>
+          <td class="num">${ratioPct(f.foreign5)}</td>
+          <td class="num">${ratioPct(f.trust5)}</td>
+          <td class="num"><span class="score-bar"><i style="width:${x.score}%"></i></span>${x.score.toFixed(0)}</td>
+          <td>${(x.tags || []).map((t) => `<span class="tag ${tagClass(t)}">${fmt.esc(t)}</span>`).join("")}</td>
+          <td>${watched.has(x.code) ? `<span class="badge live">追蹤中</span>` : `<button class="ghost" data-watch="${x.code}">加入追蹤</button>`}</td>
+        </tr>`;
+      })
+      .join("");
+    $("#sc-info").textContent = `${r.date} · ${r.label || r.preset} · 顯示前 ${rows.length} 名。分數是全市場百分位排名加權（0–100），不是機率；點列可展開全部因子。`;
+  }
+
+  $("#sc-table").addEventListener("click", async (e) => {
+    const w = e.target.closest("[data-watch]");
+    if (w) {
+      try {
+        const r = await api("/api/watchlist", { method: "POST", body: { code: w.dataset.watch, note: `選股掃描 ${sc.date}` } });
+        toast(`已加入 ${r.code} ${r.name}，背景補歷史中`);
+        await loadWatchlist();
+        loadScreener();
+      } catch (err) {
+        toast(err.message, true);
+      }
+      return;
+    }
+    const tr = e.target.closest("tr.sc-row");
+    if (!tr) return;
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains("factor-row")) { next.remove(); return; }
+    const r = await api(`/api/screener?preset=${sc.preset}&date=${sc.date}&limit=50`);
+    const x = (r.results || []).find((y) => y.code === tr.dataset.code);
+    if (!x) return;
+    const f = x.factors;
+    const items = Object.entries(sc.factors)
+      .filter(([k]) => f[k] !== undefined)
+      .map(([k, label]) => `${fmt.esc(label)}：<b>${f[k] === null ? "–" : typeof f[k] === "number" ? (Math.abs(f[k]) < 10 ? f[k].toFixed(2) : f[k].toFixed(1)) : f[k]}</b>`);
+    const row = document.createElement("tr");
+    row.className = "factor-row";
+    row.innerHTML = `<td colspan="14">${items.join(" ｜ ")}</td>`;
+    tr.after(row);
+  });
+
+  async function runScreener(notify) {
+    const btn = notify ? $("#btn-screen-notify") : $("#btn-screen-run");
+    btn.disabled = true;
+    try {
+      const r = await api("/api/screener/run", {
+        method: "POST",
+        body: { preset: sc.preset, min_turnover: Number($("#sc-turnover").value) * 1e8, top: 50, notify },
+      });
+      toast(`掃描完成：${r.date}，母體 ${r.universe} 檔${r.delivery ? "，通知 " + Object.entries(r.delivery).map(([k, v]) => `${k}=${v}`).join(" ") : ""}`);
+      sc.date = r.date;
+      await loadScreener();
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  $("#btn-screen-run").addEventListener("click", () => runScreener(false));
+  $("#btn-screen-notify").addEventListener("click", () => runScreener(true));
+  $("#sc-preset").addEventListener("change", (e) => { sc.preset = e.target.value; sc.date = null; loadScreener(); });
+  $("#sc-date").addEventListener("change", (e) => { sc.date = e.target.value; loadScreener(); });
+
   // ------------------------------------------------------------------ boot
   async function boot() {
-    await Promise.all([loadStatus(), loadRuleTypes(), loadWatchlist(), loadEvents(), loadRuns(), loadMarket()]);
+    await Promise.all([loadStatus(), loadRuleTypes(), loadWatchlist(), loadEvents(), loadRuns(), loadMarket(), loadScreenerMeta().then(loadScreener)]);
     if (state.watchlist.length && !state.selected) selectStock(state.watchlist[0].code);
     setInterval(loadWatchlist, 15000);
     setInterval(loadStatus, 30000);

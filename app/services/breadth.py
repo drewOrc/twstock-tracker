@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from ..datasources import tpex, twse
 from ..models import DailyPrice, IndexDaily, MarketStat, Stock
-from .industries import ETF_SECTOR, MAIN_INDEX, TWSE_SECTOR_INDEX, is_common_stock, sector_name
+from .industries import MAIN_INDEX, TWSE_SECTOR_INDEX, is_common_stock, sector_name
 from .market_data import business_days_back, last_business_day, upsert
 
 log = logging.getLogger(__name__)
