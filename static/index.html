@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>台股追蹤引擎</title>
+  <link rel="stylesheet" href="/static/style.css?v=0.2" />
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">台股追蹤引擎 <span class="sub">TW Stock Tracker</span></div>
+    <div class="status" id="status">連線中…</div>
+    <div class="actions">
+      <button id="btn-refresh-quotes" title="立即向證交所抓一次即時報價">更新報價</button>
+      <button id="btn-run-daily" title="抓取日線 + 三大法人 + 融資券並評估警示">執行每日更新</button>
+      <button id="btn-notify-test" class="ghost">測試通知</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ---------------------------------------------------------------- watchlist -->
+    <section class="panel watchlist">
+      <div class="panel-head">
+        <h2>追蹤池</h2>
+        <form id="add-form" class="add-form" autocomplete="off">
+          <input id="add-code" list="stock-options" placeholder="代號或名稱，例如 2330" required />
+          <datalist id="stock-options"></datalist>
+          <input id="add-note" placeholder="備註（選填）" />
+          <button type="submit">加入</button>
+        </form>
+      </div>
+      <div class="table-wrap">
+        <table id="watch-table">
+          <thead>
+            <tr>
+              <th>代號</th><th>名稱</th><th>市場</th>
+              <th class="num">現價</th><th class="num">漲跌</th><th class="num">漲跌%</th><th class="num">量(張)</th>
+              <th class="num" title="外資買賣超(張)">外資</th><th class="num" title="投信買賣超(張)">投信</th><th class="num" title="自營商買賣超(張)">自營</th>
+              <th class="num" title="融資餘額(張) / 增減">融資</th><th class="num" title="融券餘額(張) / 增減">融券</th>
+              <th>更新</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="watch-empty" class="empty hidden">追蹤池是空的，先加入一檔股票。</div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- market breadth -->
+    <section class="panel market" id="market">
+      <div class="panel-head">
+        <h2>盤面分化</h2>
+        <div class="market-nav">
+          <button id="mk-prev" class="ghost" title="前一交易日">‹</button>
+          <select id="mk-date"></select>
+          <button id="mk-next" class="ghost" title="後一交易日">›</button>
+          <button id="btn-market-update" class="ghost" title="抓最新交易日全市場資料（上市 + 上櫃各一個請求）">更新全市場</button>
+          <button id="btn-market-backfill" class="ghost" title="回補 20 個交易日（約 1–2 分鐘）">回補 20 日</button>
+        </div>
+      </div>
+      <div id="mk-empty" class="empty">尚無全市場資料，按「更新全市場」或「回補 20 日」。</div>
+      <div id="mk-body" class="hidden">
+        <div class="tiles" id="mk-tiles"></div>
+        <div class="mk-grid">
+          <div class="mk-block">
+            <h3>漲跌家數走勢 <span class="muted">（紅＝上漲、綠＝下跌；線＝上漲比例）</span></h3>
+            <div id="mk-breadth-chart" class="svg-wrap"></div>
+          </div>
+          <div class="mk-block">
+            <h3>漲跌幅分布 <span class="muted">（一般股票）</span></h3>
+            <div id="mk-dist" class="dist"></div>
+          </div>
+        </div>
+        <div class="mk-block">
+          <h3>類股強弱 <span class="muted">（點擊類股展開成分股；累計為近 N 日平均漲跌複利）</span></h3>
+          <div class="table-wrap tall">
+            <table id="mk-sectors">
+              <thead><tr><th>類股</th><th class="num">家數</th><th class="num">漲/跌</th><th class="num">平均%</th><th class="num">中位%</th><th class="num" title="證交所官方類股指數漲跌%（僅上市）">類指數%</th><th class="num" id="mk-cum-head">累計%</th><th class="num">成交佔比</th><th>領漲</th><th>領跌</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="mk-grid three">
+          <div class="mk-block"><h3>漲幅前 15 <span class="muted">（成交額 ≥ 2 千萬）</span></h3><ol id="mk-gainers" class="movers"></ol></div>
+          <div class="mk-block"><h3>跌幅前 15</h3><ol id="mk-losers" class="movers"></ol></div>
+          <div class="mk-block"><h3>成交金額前 10</h3><ol id="mk-turnover" class="movers"></ol></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- detail -->
+    <section class="panel detail" id="detail">
+      <div class="panel-head">
+        <h2 id="detail-title">選擇一檔股票</h2>
+        <div class="tabs" id="detail-tabs">
+          <button data-tab="chart" class="active">走勢</button>
+          <button data-tab="ind">指標</button>
+          <button data-tab="inst">法人</button>
+          <button data-tab="margin">融資券</button>
+          <button data-tab="alerts">警示</button>
+        </div>
+      </div>
+
+      <div class="tab-body active" data-tab="chart">
+        <div id="chart" class="chart"></div>
+        <div class="legend"><span class="ma5">MA5</span><span class="ma20">MA20</span><span class="ma60">MA60</span></div>
+      </div>
+
+      <div class="tab-body" data-tab="ind">
+        <table class="kv" id="ind-table"><tbody></tbody></table>
+      </div>
+
+      <div class="tab-body" data-tab="inst">
+        <div class="table-wrap">
+          <table id="inst-table">
+            <thead><tr><th>日期</th><th class="num">外資</th><th class="num">投信</th><th class="num">自營商</th><th class="num">合計</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="hint">單位：張（千股）。</p>
+      </div>
+
+      <div class="tab-body" data-tab="margin">
+        <div class="table-wrap">
+          <table id="margin-table">
+            <thead><tr><th>日期</th><th class="num">融資餘額</th><th class="num">資增減</th><th class="num">融券餘額</th><th class="num">券增減</th><th class="num">資券互抵</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="hint">單位：張。</p>
+      </div>
+
+      <div class="tab-body" data-tab="alerts">
+        <form id="alert-form" class="alert-form">
+          <div class="row">
+            <label>規則 <select id="alert-type"></select></label>
+            <div id="alert-params" class="params"></div>
+          </div>
+          <div class="row">
+            <label>冷卻(分) <input id="alert-cooldown" type="number" min="0" style="width:6em" /></label>
+            <label class="chk"><input id="alert-oneshot" type="checkbox" /> 觸發一次後停用</label>
+            <input id="alert-note" placeholder="備註" />
+            <button type="submit">新增警示</button>
+          </div>
+        </form>
+        <div class="table-wrap">
+          <table id="rules-table">
+            <thead><tr><th>規則</th><th>參數</th><th>狀態</th><th>上次觸發</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- events -->
+    <section class="panel events">
+      <div class="panel-head">
+        <h2>警示紀錄</h2>
+        <button id="btn-eval" class="ghost" title="立刻用最新日線/籌碼資料評估所有規則">立即評估</button>
+      </div>
+      <ul id="events-list" class="events-list"></ul>
+      <div id="events-empty" class="empty">尚無警示紀錄。</div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- jobs -->
+    <section class="panel jobs">
+      <div class="panel-head"><h2>排程 / 工作紀錄</h2></div>
+      <div id="jobs-scheduled" class="jobs-grid"></div>
+      <ul id="job-runs" class="runs"></ul>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/app.js?v=0.2"></script>
+</body>
+</html>

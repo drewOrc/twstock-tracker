@@ -1,0 +1,51 @@
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
+    )
+
+    app_name: str = "TW Stock Tracker"
+    database_url: str = f"sqlite:///{(BASE_DIR / 'data' / 'twstock.db').as_posix()}"
+    timezone: str = "Asia/Taipei"
+
+    # scheduler
+    scheduler_enabled: bool = True
+    realtime_interval_seconds: int = 10
+    backfill_months: int = 6
+
+    # http
+    http_timeout: float = 20.0
+    request_delay_seconds: float = 1.5  # TWSE throttles ~3 requests / 5 seconds
+
+    # notifications
+    notify_console: bool = True
+    line_channel_access_token: str = ""
+    line_user_id: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    email_from: str = ""
+    email_to: str = ""  # comma separated
+
+    @property
+    def email_recipients(self) -> list[str]:
+        return [x.strip() for x in self.email_to.split(",") if x.strip()]
+
+    @property
+    def line_enabled(self) -> bool:
+        return bool(self.line_channel_access_token and self.line_user_id)
+
+    @property
+    def email_enabled(self) -> bool:
+        return bool(self.smtp_host and self.email_from and self.email_recipients)
+
+
+settings = Settings()
