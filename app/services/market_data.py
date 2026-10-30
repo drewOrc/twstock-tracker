@@ -235,30 +235,32 @@ def load_daily_df(db: Session, code: str, limit: int = 300) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------- institutional / margin
-def _fetch_flows_for_date(d: date, codes: set[str]) -> tuple[list[dict], list[dict]]:
+# Institutional flows and margin balances are stored for the WHOLE market (the exchange returns
+# every security in one response anyway), so the screener can rank all stocks on chips.
+FULL_DAY_MIN_ROWS = 300  # a date with fewer rows than this was only partially stored
+
+
+def _fetch_flows_for_date(d: date) -> tuple[list[dict], list[dict]]:
     inst: list[dict] = []
     margin: list[dict] = []
     for client in (twse, tpex):
         try:
-            inst.extend(r for r in client.fetch_institutional(d) if r["code"] in codes)
+            inst.extend(client.fetch_institutional(d))
         except Exception as exc:  # noqa: BLE001
             log.warning("institutional fetch failed %s %s: %s", client.market, d, exc)
         try:
-            margin.extend(r for r in client.fetch_margin(d) if r["code"] in codes)
+            margin.extend(client.fetch_margin(d))
         except Exception as exc:  # noqa: BLE001
             log.warning("margin fetch failed %s %s: %s", client.market, d, exc)
     return inst, margin
 
 
 def update_institutional(db: Session, d: date | None = None) -> dict:
-    codes = watch_codes(db)
     d = last_business_day(d)
-    if not codes:
-        return {"rows": 0, "date": d.isoformat()}
     rows: list[dict] = []
     for client in (twse, tpex):
         try:
-            rows.extend(r for r in client.fetch_institutional(d) if r["code"] in codes)
+            rows.extend(client.fetch_institutional(d))
         except Exception as exc:  # noqa: BLE001
             log.warning("institutional fetch failed %s: %s", client.market, exc)
     n = upsert(db, InstitutionalFlow, rows, ["code", "date"])
@@ -268,14 +270,11 @@ def update_institutional(db: Session, d: date | None = None) -> dict:
 
 
 def update_margin(db: Session, d: date | None = None) -> dict:
-    codes = watch_codes(db)
     d = last_business_day(d)
-    if not codes:
-        return {"rows": 0, "date": d.isoformat()}
     rows: list[dict] = []
     for client in (twse, tpex):
         try:
-            rows.extend(r for r in client.fetch_margin(d) if r["code"] in codes)
+            rows.extend(client.fetch_margin(d))
         except Exception as exc:  # noqa: BLE001
             log.warning("margin fetch failed %s: %s", client.market, exc)
     n = upsert(db, MarginBalance, rows, ["code", "date"])
@@ -284,39 +283,22 @@ def update_margin(db: Session, d: date | None = None) -> dict:
     return {"rows": n, "date": d.isoformat()}
 
 
-def backfill_flows(db: Session, days: int = 20, check_codes: set[str] | None = None) -> dict:
-    """Fill institutional + margin history for the last N business days.
+def _full_dates(db: Session, model, since: date) -> set[date]:
+    stmt = select(model.date).where(model.date >= since).group_by(model.date).having(func.count() >= FULL_DAY_MIN_ROWS)
+    return set(db.execute(stmt).scalars())
 
-    Rows are stored for every watched code; a date is fetched (2 requests) only when one of
-    check_codes (default: all watched codes) lacks data for it.
-    """
-    store_codes = watch_codes(db)
-    check = check_codes or store_codes
-    if not store_codes:
-        return {"dates": 0, "inst_rows": 0, "margin_rows": 0}
+
+def backfill_flows(db: Session, days: int = 20, check_codes: set[str] | None = None) -> dict:
+    """Fill whole-market institutional + margin history for the last N business days.
+    A date is fetched (2 requests) only if it is not already stored in full."""
     dates = business_days_back(last_business_day(), days)
-    have_inst = {
-        (r.code, r.date)
-        for r in db.execute(
-            select(InstitutionalFlow.code, InstitutionalFlow.date).where(
-                InstitutionalFlow.code.in_(check), InstitutionalFlow.date >= dates[-1]
-            )
-        )
-    }
-    have_margin = {
-        (r.code, r.date)
-        for r in db.execute(
-            select(MarginBalance.code, MarginBalance.date).where(
-                MarginBalance.code.in_(check), MarginBalance.date >= dates[-1]
-            )
-        )
-    }
+    have_inst = _full_dates(db, InstitutionalFlow, dates[-1])
+    have_margin = _full_dates(db, MarginBalance, dates[-1])
     fetched, inst_total, margin_total = 0, 0, 0
     for d in dates:
-        missing = any((c, d) not in have_inst or (c, d) not in have_margin for c in check)
-        if not missing:
+        if d in have_inst and d in have_margin:
             continue
-        inst, margin = _fetch_flows_for_date(d, store_codes)
+        inst, margin = _fetch_flows_for_date(d)
         inst_total += upsert(db, InstitutionalFlow, inst, ["code", "date"])
         margin_total += upsert(db, MarginBalance, margin, ["code", "date"])
         db.commit()

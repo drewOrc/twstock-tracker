@@ -134,6 +134,23 @@ class IndexDaily(Base):
     change_pct: Mapped[float | None] = mapped_column(Float)
 
 
+class ScreenerResult(Base):
+    """Ranked output of the daily multi-factor screener, one row per (date, preset, code)."""
+
+    __tablename__ = "screener_results"
+    __table_args__ = (UniqueConstraint("date", "preset", "code", name="uq_screen_date_preset_code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    preset: Mapped[str] = mapped_column(String(32), index=True)
+    rank: Mapped[int] = mapped_column(Integer)
+    code: Mapped[str] = mapped_column(String(12), index=True)
+    score: Mapped[float] = mapped_column(Float)
+    factors: Mapped[dict] = mapped_column(JSON, default=dict)
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
 class RealtimeQuote(Base):
     """Latest intraday snapshot per code (overwritten on each poll)."""
 

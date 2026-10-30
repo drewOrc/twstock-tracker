@@ -1,0 +1,3 @@
+# Every pull request automatically requests a review from the repository owner.
+# (GitHub skips the request when the PR author is the owner themself.)
+* @drewOrc

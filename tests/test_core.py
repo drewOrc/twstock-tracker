@@ -109,3 +109,32 @@ def test_sector_names():
     assert sector_name("0050", None) == ETF_SECTOR
     assert sector_name("00878", None) == ETF_SECTOR
     assert sector_name("2330", None).startswith("未分類")
+
+
+def test_screener_scoring_and_tags():
+    import pandas as pd
+
+    from app.services import screener
+
+    f = pd.DataFrame(
+        {
+            "rs20": [10.0, -5.0, 2.0],
+            "breakout": [1.02, 0.8, 0.95],
+            "vol_ratio": [2.5, 0.7, 1.0],
+            "foreign5": [0.12, -0.05, None],
+            "trend": [4, 1, 2],
+            "sector_name": ["半導體", "食品", "光電"],
+        },
+        index=["AAAA", "BBBB", "CCCC"],
+    )
+    score = screener.score_factors(f, {"rs20": 50, "breakout": 25, "vol_ratio": 25})
+    assert list(score.sort_values(ascending=False).index) == ["AAAA", "CCCC", "BBBB"]
+    assert 0 <= score.min() <= score.max() <= 100
+    row = f.loc["AAAA"]
+    row = pd.concat([row, pd.Series({"breakout60": float("nan"), "foreign_streak": 4, "trust5": 0.01, "margin_change": None, "ret5": 3.0, "contrarian": 3})])
+    tags = screener.make_tags(row, {"半導體"})
+    assert "創 20 日新高" in tags and "量能 2.5x" in tags and "多頭排列" in tags
+    assert "外資連買 4 日" in tags and "外資 5 日大買" in tags and "強勢類股" in tags
+    assert "逆勢收紅 3 次" in tags and "投信買超" not in tags
+    for key, p in screener.PRESETS.items():
+        assert set(p["weights"]) <= set(screener.FACTOR_LABELS), key

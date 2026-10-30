@@ -95,6 +95,39 @@ python cli.py market --days 20  # 回補 20 個交易日（約 1–2 分鐘）
 
 類股依公司「產業別」代碼對照（上市上櫃共用），ETF 與非 4 碼商品歸入「ETF / 其他商品」且不計入家數統計。日線工作每天 15:05 / 17:05 會順便更新全市場。
 
+## 選股掃描器
+
+每天收盤後對全市場流動性合格的一般股票（預設成交額 ≥ 5 千萬）計算因子，轉成全市場百分位排名（0–100）後依預設權重加總成分數，產出候選清單並存入 `screener_results`，方便之後回測每個標籤的實際勝率。
+
+```bash
+python cli.py screen                       # 均衡預設，前 20 名
+python cli.py screen --preset chips --top 30 --notify
+```
+
+| 因子 | 說明 |
+| --- | --- |
+| `rs20` / `rs5` | 20 / 5 日漲幅減去加權指數同期漲幅 |
+| `breakout` / `breakout60` | 收盤 ÷ 前 20 / 60 日最高價（≥ 1 代表創新高） |
+| `vol_ratio` / `vol_trend` | 今日量 ÷ 20 日均量、5 日均量 ÷ 20 日均量 |
+| `trend` | 均線排列分：收盤 > MA5、MA5 > MA20、MA20 > MA60、MA20 上升，各 1 分 |
+| `foreign5` / `trust5` | 外資 / 投信 5 日淨買超 ÷ 5 日成交量 |
+| `foreign_streak` | 外資連續買超天數 |
+| `margin` | 融資餘額 5 日變化（減少計高分） |
+| `contrarian` | 近 20 日「上漲家數 < 40%」的弱勢盤中逆勢收紅次數 |
+| `sector` | 所屬類股近 5 日累計平均漲跌 |
+
+預設權重：`balanced`（均衡）、`momentum`（動能突破）、`chips`（法人籌碼）、`contrarian`（分化盤逆勢強勢）；`POST /api/screener/run` 也接受自訂 `weights`。
+訊號標籤（創 60 日新高、量能 Nx、多頭排列、外資連買 N 日、外資 5 日大買、投信買超、融資減價漲、逆勢收紅 N 次、強勢類股）會一併儲存。
+
+排程：三大法人更新後（16:40 / 18:40）自動跑四個預設，均衡預設的前 10 名會推播。掃描需要全市場日線與籌碼歷史，首次使用請先：
+
+```bash
+python cli.py market --days 60
+python cli.py flows --days 60
+```
+
+**分數是相對排名，不是機率。** 要知道「分數 80 以上的股票 20 日後有多少比例上漲」，需要下一步的回測模組把 `screener_results` 與後續價格對照。
+
 ## REST API 摘要
 
 ```
@@ -122,6 +155,10 @@ GET    /api/market/breadth?date=2026-10-30          # 家數、類股、分布�
 GET    /api/market/breadth/history?days=30
 GET    /api/market/sectors/history?days=10          # 類股每日平均漲跌矩陣與累計
 GET    /api/market/sectors/{類股名}/stocks?date=
+GET    /api/screener/presets                        # 預設權重與因子說明
+GET    /api/screener/dates?preset=balanced
+GET    /api/screener?preset=balanced&date=&limit=30
+POST   /api/screener/run       {"preset":"chips","min_turnover":50000000,"top":30,"notify":false}
 GET    /api/jobs                                    # 排程與即時輪詢狀態
 POST   /api/jobs/{name}/run                         # daily_prices | institutional | margin | flows_backfill | market_daily | market_backfill | stock_list | alerts_daily | full_daily | realtime
 GET    /api/jobs/runs

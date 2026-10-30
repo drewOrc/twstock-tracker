@@ -4,6 +4,7 @@ import math
 from datetime import date, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,7 @@ from ..config import settings
 from ..db import get_db
 from ..models import AlertRule, JobRun, WatchlistItem
 from ..schemas import AlertRuleCreate, AlertRuleUpdate, NotifyTest, WatchlistCreate, WatchlistUpdate
-from ..services import alerts, breadth
+from ..services import alerts, breadth, screener
 from ..services import market_data as md
 from ..services.indicators import compute_all
 from ..services.notifier import notifier
@@ -271,6 +272,44 @@ def market_sector_history(days: int = 10, db: Session = Depends(get_db)):
 @router.get("/market/sectors/{name}/stocks")
 def market_sector_stocks(name: str, date: str | None = None, db: Session = Depends(get_db)):  # noqa: A002
     return breadth.sector_stocks(db, name, _parse_date(date))
+
+
+# ---------------------------------------------------------------------- screener (選股掃描)
+class ScreenerRun(BaseModel):
+    preset: str = "balanced"
+    date: str | None = None
+    min_turnover: float = 50_000_000
+    top: int = 30
+    notify: bool = False
+    weights: dict[str, float] | None = None
+
+
+@router.get("/screener/presets")
+def screener_presets():
+    return {
+        "presets": [{"key": k, "label": v["label"], "weights": v["weights"]} for k, v in screener.PRESETS.items()],
+        "factors": screener.FACTOR_LABELS,
+    }
+
+
+@router.get("/screener/dates")
+def screener_dates(preset: str | None = None, db: Session = Depends(get_db)):
+    return [d.isoformat() for d in screener.result_dates(db, preset)]
+
+
+@router.get("/screener")
+def screener_results(preset: str = "balanced", date: str | None = None, limit: int = 30, db: Session = Depends(get_db)):  # noqa: A002
+    return screener.load_results(db, _parse_date(date), preset, limit)
+
+
+@router.post("/screener/run")
+def screener_run(body: ScreenerRun, db: Session = Depends(get_db)):
+    try:
+        return screener.run_screener(
+            db, _parse_date(body.date), body.preset, body.min_turnover, body.top, body.notify, body.weights
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------- jobs

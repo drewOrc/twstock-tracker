@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -13,7 +13,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from .config import settings
 from .db import session_scope
 from .models import JobRun
-from .services import alerts, breadth
+from .services import alerts, breadth, screener
 from .services import market_data as md
 from .utils import is_trading_hours, now_tw
 
@@ -47,7 +47,25 @@ def job_market_backfill(db) -> dict:
 def job_institutional(db) -> dict:
     result = md.update_institutional(db)
     result["alerts"] = len(alerts.evaluate_daily(db))
+    result["screener"] = _run_screens(db)
     return result
+
+
+def _run_screens(db) -> dict:
+    """Run every preset on the latest market day; notify with the balanced top 10."""
+    out = {}
+    for key in screener.PRESETS:
+        try:
+            r = screener.run_screener(db, preset=key, notify=(key == "balanced"))
+            out[key] = {"universe": r["universe"], "top": len(r["results"])}
+        except Exception as exc:  # noqa: BLE001
+            log.warning("screener %s failed: %s", key, exc)
+            out[key] = {"error": str(exc)}
+    return out
+
+
+def job_screener(db) -> dict:
+    return _run_screens(db)
 
 
 def job_margin(db) -> dict:
@@ -79,6 +97,7 @@ def job_full_daily(db) -> dict:
         "margin": md.update_margin(db),
     }
     out["alerts"] = len(alerts.evaluate_daily(db))
+    out["screener"] = _run_screens(db)
     return out
 
 
@@ -95,6 +114,7 @@ JOBS: dict[str, Callable] = {
     "flows_backfill": job_flows_backfill,
     "market_daily": job_market_daily,
     "market_backfill": job_market_backfill,
+    "screener": job_screener,
     "stock_list": job_stock_list,
     "alerts_daily": job_alerts_daily,
     "full_daily": job_full_daily,
