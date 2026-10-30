@@ -17,13 +17,39 @@ Python 後端 + Web 儀表板的台股追蹤引擎，資料來源全部是證交
 | Web 儀表板 | 追蹤池總覽、盤面分化、K 線圖、指標、籌碼表、警示管理、排程狀態 |
 | REST API | 所有資料都有 JSON API，方便之後整合自己的前端 |
 
+## 統一介面：引擎 + Stock CRM
+
+引擎與 [Stock CRM](../stockcrm)（供應鏈投資日誌）是兩個獨立後端，由同一個 React 前端整合：
+
+```
+瀏覽器 ──► 引擎 :8000 ──┬── /api/*        市場資料、警示、掃描、排程
+                        ├── /api/crm/*    反向代理 ──► Stock CRM :8765 /api/*
+                        └── /             web/dist（Vite + React + TypeScript）
+```
+
+- 前端只面對一個網址，沒有 CORS 問題；stockcrm 不需要任何修改，各自保有 repo、資料庫、CI 與 PR 流程。
+- 分頁：引擎（追蹤池、盤面分化、選股掃描、警示、排程）與 CRM（看板、關係圖、早晨、提案），卡片抽屜可從任何頁面打開。
+- 身份橋接在前端：CRM 的 `TW:2330` ↔ 引擎的 `2330`（`web/src/lib/format.ts`）。
+- 舊版純 HTML 儀表板仍在 <http://127.0.0.1:8000/legacy/>。
+- CRM 位址可用 `.env` 的 `CRM_BASE_URL` 改（預設 `http://127.0.0.1:8765`）；CRM 離線時 `/api/crm/*` 回 502，`/api/health` 的 `crm.reachable` 會是 false。
+
+```bash
+# 前端開發（熱更新，/api 代理到 :8000）
+cd web && npm install && npm run dev        # http://127.0.0.1:5173
+# 正式建置，之後由引擎直接伺服
+cd web && npm run build
+```
+
 ## 快速開始
 
 ```bash
 cd twstock-tracker
 pip install -r requirements.txt
 copy .env.example .env        # 視需要填入 LINE / Email 設定
+cd web && npm install && npm run build && cd ..   # 統一前端（可略過，略過時 / 顯示舊版儀表板）
 python cli.py serve           # http://127.0.0.1:8000
+# 另開終端機啟動 Stock CRM（CRM 分頁才有資料）
+cd ../stockcrm && python -m stockcrm.api          # http://127.0.0.1:8765
 ```
 
 或直接：
