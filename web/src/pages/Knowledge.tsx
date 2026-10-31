@@ -1,11 +1,11 @@
-/* 知識層：提案審核（agent / 成員提出，管理員核准）、ETF 成分股、待補清單。 */
+/* 知識層：提案審核（agent / 成員提出，管理員核准）、ETF 成分股、產業鏈、待補清單。 */
 import { useMemo, useState } from "react";
 import { engine, useAsync } from "../api/client";
 import { useMe } from "../components/Auth";
 import { useAction } from "../components/Toast";
 import { time } from "../lib/format";
 
-type Tab = "proposals" | "funds" | "todo";
+type Tab = "proposals" | "funds" | "chains" | "todo";
 const KIND: Record<string, string> = { company: "公司", edge: "供應鏈關係", edge_weight: "權重", brief: "簡介 / 重點", metric: "實際值", financial: "季報" };
 const CONF: Record<string, string> = { high: "高", medium: "中", low: "低" };
 
@@ -18,13 +18,14 @@ export default function Knowledge() {
         <div className="panel-head">
           <h2>知識層 <span className="muted small">共用給所有人的公司、供應鏈、簡介與官方數字</span></h2>
           <div className="tabs">
-            {([["proposals", `提案審核${counts.data?.pending ? `（${counts.data.pending}）` : ""}`], ["funds", "ETF 成分股"], ["todo", "待補"]] as [Tab, string][]).map(([k, label]) => (
+            {([["proposals", `提案審核${counts.data?.pending ? `（${counts.data.pending}）` : ""}`], ["funds", "ETF 成分股"], ["chains", "產業鏈"], ["todo", "待補"]] as [Tab, string][]).map(([k, label]) => (
               <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{label}</button>
             ))}
           </div>
         </div>
         {tab === "proposals" && <Proposals onChanged={counts.reload} />}
         {tab === "funds" && <Funds />}
+        {tab === "chains" && <Chains />}
         {tab === "todo" && <Todo />}
       </section>
     </>
@@ -178,6 +179,66 @@ function Funds() {
           </table>
         </div>
       )}
+    </>
+  );
+}
+
+const STAGE_ORDER = ["上游", "中游", "下游"];
+
+function Chains() {
+  const { me } = useMe();
+  const act = useAction();
+  const list = useAsync<any>(() => engine("/knowledge/chains"), [], 600000);
+  const [pick, setPick] = useState<string>(() => { try { return localStorage.getItem("kn.chain") || "D000"; } catch { return "D000"; } });
+  const [q, setQ] = useState("");
+  const detail = useAsync<any>(() => engine(`/knowledge/chains/${encodeURIComponent(pick)}`).catch(() => null), [pick], 600000);
+  const choose = (id: string) => { setPick(id); try { localStorage.setItem("kn.chain", id); } catch { /* private mode */ } };
+  const refresh = () => act(async () => { await engine(`/knowledge/chains/refresh?ic=${encodeURIComponent(pick)}`, { method: "POST" }); detail.reload(); list.reload(); }, "已重新讀取這條產業鏈");
+  const st = list.data?.stats;
+  const d = detail.data;
+  const hit = (m: any) => !q || m.name.includes(q) || (m.code ?? "").startsWith(q);
+  const groups = useMemo(() => {
+    const out: Record<string, any[]> = {};
+    for (const s of d?.segments ?? []) (out[s.stage ?? "分類"] ??= []).push(s);
+    return Object.entries(out).sort(([a], [b]) => (STAGE_ORDER.indexOf(a) + 1 || 9) - (STAGE_ORDER.indexOf(b) + 1 || 9));
+  }, [d]);
+  const members = (ms: any[]) => (
+    <div className="ctx-line">
+      {ms.filter(hit).map((m, i) => (
+        <span key={i} className={`chip${m.code ? "" : " muted"}${q && hit(m) ? " pick on" : ""}`} title={`${m.listing ?? ""}${m.in_graph ? " · 已在關係圖" : ""}`}>
+          {m.in_graph ? "● " : ""}{m.name}{m.code ? ` ${m.code}` : ""}
+        </span>
+      ))}
+      {!ms.filter(hit).length && <span className="kv">{ms.length ? "沒有符合的公司" : "平台未列公司"}</span>}
+    </div>
+  );
+  if (list.data && !list.data.chains.length) return <div className="empty">還沒有產業鏈資料。管理員可用 <code>python cli.py knowledge chains</code> 抓取，之後每週日 06:30 自動更新。</div>;
+  return (
+    <>
+      <p className="hint">來源：櫃買中心產業價值鏈資訊平台，系統每週日自動更新{st?.fetched_at ? `（上次 ${time(st.fetched_at)}）` : ""}。共 {st?.chains ?? "…"} 個產業、{st?.tw_companies ?? "…"} 家台灣公司；● 表示這家公司已在供應鏈關係圖裡。這是「同一段有誰」的分類，不是客戶與供應商關係。</p>
+      <div className="row toolbar">
+        <select value={pick} onChange={(e) => choose(e.target.value)}>
+          {(list.data?.chains ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.name}（{c.companies}）</option>)}
+        </select>
+        <input placeholder="找公司名稱或代號" value={q} onChange={(e) => setQ(e.target.value.trim())} style={{ maxWidth: "14em" }} />
+        {me?.role === "admin" && <button className="ghost tiny" onClick={refresh}>重新讀取</button>}
+        {d?.source_url && <a className="kv" href={d.source_url} target="_blank" rel="noopener noreferrer">原始頁面</a>}
+      </div>
+      {d?.intro && <p className="brief small">{d.intro.length > 400 ? `${d.intro.slice(0, 400)}…` : d.intro}</p>}
+      {groups.map(([stage, segs]) => (
+        <section key={stage} className="panel">
+          <h4>{stage}</h4>
+          {segs.map((s: any) => (
+            <div key={s.code} className="brief">
+              <b>{s.name}</b> <span className="kv">{s.members.length + s.children.reduce((n: number, c: any) => n + c.members.length, 0)} 家</span>
+              {s.members.length > 0 && members(s.members)}
+              {s.children.map((c: any) => (
+                <div key={c.code} style={{ marginTop: 6 }}><span className="kv">{c.name}</span>{members(c.members)}</div>
+              ))}
+            </div>
+          ))}
+        </section>
+      ))}
     </>
   );
 }

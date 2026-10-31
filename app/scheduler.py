@@ -155,6 +155,12 @@ def job_etf_holdings(db) -> dict:
     return etf_holdings.refresh_tw_funds(db)
 
 
+def job_industry_chains(db) -> dict:
+    from .services import industry_chains
+
+    return industry_chains.refresh(db)
+
+
 def job_knowledge_extract(db) -> dict:
     from .services import extractor
 
@@ -171,6 +177,7 @@ JOBS: dict[str, Callable] = {
     "tunnel_watch": job_tunnel_watch,
     "knowledge_extract": job_knowledge_extract,
     "etf_holdings": job_etf_holdings,
+    "industry_chains": job_industry_chains,
     "knowledge_sync": job_knowledge_sync,
     "knowledge_highlights": job_knowledge_highlights,
     "mops_monthly": job_mops_monthly,
@@ -288,6 +295,7 @@ def start() -> None:
     scheduler.add_job(run_job, IntervalTrigger(hours=6), args=["knowledge_sync"], id="knowledge_sync", name="knowledge nodes for tracked stocks (6 h)")
     scheduler.add_job(run_job, _cron(hour=19, minute=45), args=["knowledge_highlights"], id="knowledge_highlights", name="monthly-revenue highlights 19:45")
     scheduler.add_job(run_job, CronTrigger(day_of_week="tue", hour=7, minute=0, timezone=settings.timezone), args=["etf_holdings"], id="etf_holdings", name="ETF holdings refresh (Tue 07:00)")
+    scheduler.add_job(run_job, CronTrigger(day_of_week="sun", hour=6, minute=30, timezone=settings.timezone), args=["industry_chains"], id="industry_chains", name="TPEx industry value chains (Sun 06:30)")
     if settings.extractor_enabled:
         scheduler.add_job(run_job, _cron(hour=20, minute=30), args=["knowledge_extract"], id="knowledge_extract", name="LLM extractor -> proposals 20:30")
     scheduler.start()

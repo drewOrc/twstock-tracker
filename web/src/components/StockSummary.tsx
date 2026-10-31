@@ -84,6 +84,23 @@ export function StockSummary({ code, compact = false, onData }: { code: string; 
         </section>
       )}
 
+      {ctx.chains?.length > 0 && (
+        <section>
+          <h4>產業鏈位置 <span className="kv">櫃買中心產業價值鏈 · 同一段的公司</span></h4>
+          {ctx.chains.map((w: any) => (
+            <div key={`${w.chain_id}-${w.segment_code}`} className="brief">
+              <b>{w.chain}</b>{w.stage ? ` · ${w.stage}` : ""} · {w.parent ? `${w.parent} › ` : ""}{w.segment} <span className="kv">同段 {w.peers_total} 家</span>
+              <div className="ctx-line">
+                {w.peers.map((p: any, i: number) => (
+                  <span key={i} className={`chip${p.code ? "" : " muted"}`} title={p.listing ?? ""}>{p.name}{p.code ? ` ${p.code}` : ""}</span>
+                ))}
+                {w.peers_total > w.peers.length && <span className="kv">…</span>}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       {s.news && (
         <section>
           <h4>最近新聞 <span className="kv">Google News「{s.news.query}」{s.news.error ? ` · 取得失敗（${s.news.error}）` : ""}</span></h4>
