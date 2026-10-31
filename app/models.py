@@ -283,3 +283,130 @@ class JobRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+# ------------------------------------------------------------------ shared knowledge layer
+# These tables live in the shared market.db next to the CRM's personal_* tables. The engine is their
+# only writer; the CRM reads them directly and sends changes through /api/market/knowledge/*.
+# Column names mirror the CRM's former companies / edges / company_briefs / financials_ytd / metrics
+# tables so the CRM's reads only had to change table names.
+
+
+class SchemaRegistry(Base):
+    """Who writes which table in the shared file. Both sides upsert rows for their own tables."""
+
+    __tablename__ = "schema_registry"
+
+    table_name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    layer: Mapped[str] = mapped_column(String(16))  # knowledge | personal | auth | ops
+    owner: Mapped[str] = mapped_column(String(16))  # engine | crm
+    writer: Mapped[str] = mapped_column(String(64))  # process allowed to write
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class Company(Base):
+    """Graph node. id is MARKET:TICKER ("TW:2330", "US:NVDA"); TW ids map onto `stocks.code`."""
+
+    __tablename__ = "knowledge_companies"
+
+    id: Mapped[str] = mapped_column(String(24), primary_key=True)
+    market: Mapped[str] = mapped_column(String(8))  # TW | US
+    ticker: Mapped[str] = mapped_column(String(16), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    name_en: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    sector: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    confidence: Mapped[str] = mapped_column(String(8), default="medium")  # high | medium | low
+    created_by: Mapped[str] = mapped_column(String(64), default="user")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class Edge(Base):
+    """Directed relation. customer buys from supplier; revenue_share = share of the SUPPLIER's revenue
+    that comes from the CUSTOMER (0..1). relation: customer | partner | holding (fund constituent)."""
+
+    __tablename__ = "knowledge_edges"
+    __table_args__ = (UniqueConstraint("customer_id", "supplier_id", name="uq_edge_pair"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[str] = mapped_column(String(24), ForeignKey("knowledge_companies.id"), index=True)
+    supplier_id: Mapped[str] = mapped_column(String(24), ForeignKey("knowledge_companies.id"), index=True)
+    revenue_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lag_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    confidence: Mapped[str] = mapped_column(String(8), default="medium")
+    relation: Mapped[str] = mapped_column(String(16), default="customer")
+    source: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(64), default="user")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class EdgeWeight(Base):
+    """History of an edge's revenue_share; the edge row keeps the latest value for quick reads."""
+
+    __tablename__ = "knowledge_edge_weights"
+    __table_args__ = (UniqueConstraint("edge_id", "date", name="uq_edge_weight_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    edge_id: Mapped[int] = mapped_column(Integer, ForeignKey("knowledge_edges.id", ondelete="CASCADE"), index=True)
+    date: Mapped[date] = mapped_column(Date)
+    revenue_share: Mapped[float] = mapped_column(Float)
+    source: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_by: Mapped[str] = mapped_column(String(64), default="user")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class CompanyBrief(Base):
+    """Prose about a company. Append-only: latest row per kind wins.
+    kind: profile (what it does, stable) | highlights (recent developments, dated)."""
+
+    __tablename__ = "knowledge_company_briefs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[str] = mapped_column(String(24), ForeignKey("knowledge_companies.id"), index=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    sources: Mapped[list | None] = mapped_column(JSON, default=list)  # [{title, url, date}]
+    created_by: Mapped[str] = mapped_column(String(64), default="user")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class FinancialYTD(Base):
+    """Year-to-date quarterly income statement figures (open data publishes YTD). Thousands of TWD."""
+
+    __tablename__ = "knowledge_financials_ytd"
+    __table_args__ = (UniqueConstraint("company_id", "year", "quarter", name="uq_fin_period"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[str] = mapped_column(String(24), ForeignKey("knowledge_companies.id"), index=True)
+    year: Mapped[int] = mapped_column(Integer)
+    quarter: Mapped[int] = mapped_column(Integer)
+    revenue: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gross_profit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    opex: Mapped[float | None] = mapped_column(Float, nullable=True)
+    net_income: Mapped[float | None] = mapped_column(Float, nullable=True)
+    eps: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class MetricActual(Base):
+    """Observed standard metrics (revenue_m, revenue_q, gross_margin, opex, eps, shares) per period.
+    Model values are a personal matter and stay in the CRM's personal tables."""
+
+    __tablename__ = "knowledge_metrics"
+    __table_args__ = (UniqueConstraint("company_id", "metric", "period", name="uq_metric_period"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[str] = mapped_column(String(24), ForeignKey("knowledge_companies.id"), index=True)
+    metric: Mapped[str] = mapped_column(String(16))
+    period: Mapped[str] = mapped_column(String(10))  # 2026 | 2026Q2 | 2026-05
+    value: Mapped[float] = mapped_column(Float)
+    source: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_by: Mapped[str] = mapped_column(String(64), default="user")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

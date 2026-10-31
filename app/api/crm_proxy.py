@@ -54,7 +54,12 @@ async def proxy(path: str, request: Request, user: User = Depends(current_user))
 async def crm_health() -> dict:
     """Quick reachability probe used by /api/health."""
     try:
+        r = await _client.get("/api/health", timeout=2.0)  # public on the CRM: no identity needed
+        if r.status_code == 200:
+            info = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+            return {"url": settings.crm_base_url, "reachable": True, **{k: info.get(k) for k in ("version", "multiuser", "shared_db") if k in info}}
+        # older CRM without /api/health: any HTTP answer from /api/enums (200, or 401 when fail-closed) means it is up
         r = await _client.get("/api/enums", timeout=2.0)
-        return {"url": settings.crm_base_url, "reachable": r.status_code == 200}
+        return {"url": settings.crm_base_url, "reachable": r.status_code in (200, 401), "fail_closed": r.status_code == 401}
     except httpx.HTTPError as exc:
         return {"url": settings.crm_base_url, "reachable": False, "error": type(exc).__name__}

@@ -72,6 +72,14 @@ def main(argv: list[str] | None = None) -> int:
     ud.add_argument("username")
     ue = usub.add_parser("enable", help="re-enable a user")
     ue.add_argument("username")
+    kn_p = sub.add_parser("knowledge", help="shared knowledge layer (companies, edges, briefs, financials)")
+    ksub = kn_p.add_subparsers(dest="kcmd", required=True)
+    ki = ksub.add_parser("import-crm", help="copy the CRM's companies/edges/briefs/financials/actual metrics into knowledge_* (read-only on the source)")
+    ki.add_argument("--source", default=None, help="path to stockcrm.db (default: ../stockcrm/data/stockcrm.db)")
+    ksub.add_parser("stats", help="row counts of the knowledge tables")
+    kf = ksub.add_parser("fetch", help="fetch official facts from TWSE/TPEx open data into the knowledge tables")
+    kf.add_argument("what", choices=["monthly", "quarterly", "shares", "all"])
+    ksub.add_parser("registry", help="who writes which table in the shared database")
     sub.add_parser("update", help="run daily prices + institutional + margin + alert evaluation")
 
     b = sub.add_parser("backfill", help="backfill daily history for a code")
@@ -138,6 +146,29 @@ def main(argv: list[str] | None = None) -> int:
                 u.disabled = args.ucmd == "disable"
                 db.commit()
                 print(f"{u.username} {'disabled' if u.disabled else 'enabled'}")
+        return 0
+
+    if args.cmd == "knowledge":
+        from pathlib import Path
+
+        from app.config import BASE_DIR
+        from app.services import knowledge as kn
+
+        with session_scope() as db:
+            if args.kcmd == "import-crm":
+                src = Path(args.source) if args.source else BASE_DIR.parent / "stockcrm" / "data" / "stockcrm.db"
+                _dump(kn.import_from_crm(db, src))
+            elif args.kcmd == "stats":
+                _dump(kn.stats(db))
+            elif args.kcmd == "fetch":
+                jobs = ["mops_monthly", "mops_quarterly", "mops_shares"] if args.what == "all" else [f"mops_{args.what}"]
+                for j in jobs:
+                    _dump({j: sched.run_job(j)})
+            elif args.kcmd == "registry":
+                from app.models import SchemaRegistry
+
+                for r in db.query(SchemaRegistry).order_by(SchemaRegistry.layer, SchemaRegistry.table_name):
+                    print(f"{r.layer:<10} {r.owner:<7} {r.table_name:<28} {r.note or ''}")
         return 0
 
     # watchlist commands act as the (first) admin account

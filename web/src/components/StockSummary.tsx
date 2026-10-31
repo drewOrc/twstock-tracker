@@ -61,6 +61,29 @@ export function StockSummary({ code, compact = false, onData }: { code: string; 
         </div>
       </section>
 
+      {ctx.knowledge && (
+        <section>
+          <h4>供應鏈與簡介 <span className="kv">共用知識層 {ctx.knowledge.company_id}{ctx.knowledge.sector ? ` · ${ctx.knowledge.sector}` : ""}</span></h4>
+          {ctx.knowledge.briefs.profile && <p className="brief">{ctx.knowledge.briefs.profile.content}</p>}
+          {ctx.knowledge.briefs.highlights && (
+            <p className="brief"><span className="k">近期重點 {ctx.knowledge.briefs.highlights.date}</span>{ctx.knowledge.briefs.highlights.content}</p>
+          )}
+          <div className="ctx-line">
+            {ctx.knowledge.customers.map((e: any) => (
+              <span key={`c${e.id}`} className="chip" title={e.relation === "holding" ? "成分股權重" : "佔本公司營收比重"}>
+                {e.relation === "holding" ? "持有於" : "客戶"} {e.name ?? e.id}{e.revenue_share != null ? ` ${Math.round(e.revenue_share * 100)}%` : ""}
+              </span>
+            ))}
+            {ctx.knowledge.suppliers.map((e: any) => (
+              <span key={`s${e.id}`} className="chip" title={e.relation === "holding" ? "成分股" : "佔對方營收比重"}>
+                {e.relation === "holding" ? "成分股" : "供應商"} {e.name ?? e.id}{e.revenue_share != null ? ` ${Math.round(e.revenue_share * 100)}%` : ""}
+              </span>
+            ))}
+            {!ctx.knowledge.customers.length && !ctx.knowledge.suppliers.length && <span className="kv">還沒有供應鏈關係。</span>}
+          </div>
+        </section>
+      )}
+
       {s.news && (
         <section>
           <h4>最近新聞 <span className="kv">Google News「{s.news.query}」{s.news.error ? ` · 取得失敗（${s.news.error}）` : ""}</span></h4>
