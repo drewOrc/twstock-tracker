@@ -94,3 +94,19 @@ def test_crm_proxy_carries_identity(client, admin_id, monkeypatch):
     assert client.get("/api/crm/positions").status_code == 200
     assert seen["x-user-id"] == str(admin_id) and seen["x-user-name"] == ADMIN[0] and seen["x-facade-token"] == "sekret"
     assert "cookie" not in seen
+
+
+def test_service_token_opens_shared_layer_only(anon, admin_id, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "crm_facade_token", "svc-secret")
+    svc = {"X-Service-Token": "svc-secret", "X-User-Id": str(admin_id)}
+    assert anon.get("/api/market/alerts/rule-types").status_code == 401
+    assert anon.get("/api/market/alerts/rule-types", headers=svc).status_code == 200
+    assert anon.get("/api/market/alerts/rule-types", headers={**svc, "X-Service-Token": "wrong"}).status_code == 401
+    assert anon.get("/api/market/alerts/rule-types", headers={"X-Service-Token": "svc-secret"}).status_code == 401
+    assert anon.get("/api/market/alerts/rule-types", headers={**svc, "X-User-Id": "999"}).status_code == 401
+    assert anon.get("/api/me/watchlists", headers=svc).status_code == 403
+    assert anon.get("/api/admin/users", headers=svc).status_code == 403
+    monkeypatch.setattr(settings, "crm_facade_token", "")
+    assert anon.get("/api/market/alerts/rule-types", headers=svc).status_code == 401

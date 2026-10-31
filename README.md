@@ -24,7 +24,7 @@ Python 後端 + Web 儀表板的台股追蹤引擎，資料來源全部是證交
 
 - **登入**：本機帳號 + 密碼（PBKDF2 雜湊），伺服器端 session、HttpOnly cookie（HTTPS 下自動 Secure），登入失敗限速。第一次啟動若沒有任何帳號，會用 `.env` 的 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 建管理員，沒設則建 `admin` 並把隨機密碼寫進日誌。
 - **角色**：`admin` 可管理帳號、執行工作、測試通知、同步系統清單；`member` 只能用自己的資料。管理員在「帳號管理」頁建帳號、重設密碼、填每個人的 LINE 使用者 ID 與 Email（警示會推到本人）。
-- **API 命名空間**：`/api/market/*` 通用層（登入即可讀）、`/api/me/*` 個人化層（自動依登入者過濾）、`/api/admin/*`、`/api/auth/*`、`/api/crm/*`（代理到 Stock CRM 並帶 `X-User-Id` / `X-User-Name` / `X-Facade-Token`）。舊的 `/api/*` 路徑仍可用。
+- **API 命名空間**：`/api/market/*` 通用層（登入即可讀）、`/api/me/*` 個人化層（自動依登入者過濾）、`/api/admin/*`、`/api/auth/*`、`/api/crm/*`（代理到 Stock CRM 並帶 `X-User-Id` / `X-User-Name` / `X-Facade-Token`）。舊的 `/api/*` 路徑仍可用。本機服務（例如 CRM 的 MCP）不走瀏覽器登入時，可帶 `X-Service-Token`（＝ `CRM_FACADE_TOKEN`）加 `X-User-Id` 讀 `/api/market/*`；個人與管理路徑一律要真正登入。
 - **對外**：兩個後端仍只綁 127.0.0.1。公開存取走 Cloudflare Tunnel（不開路由器埠、自帶 HTTPS）：
 
 ```powershell
