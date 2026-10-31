@@ -55,6 +55,7 @@ async def crm_health() -> dict:
     """Quick reachability probe used by /api/health."""
     try:
         r = await _client.get("/api/enums", timeout=2.0)
-        return {"url": settings.crm_base_url, "reachable": r.status_code == 200}
+        # 401 = the CRM is up but fail-closed (multi-user mode): still reachable, identity is per request
+        return {"url": settings.crm_base_url, "reachable": r.status_code in (200, 401), "fail_closed": r.status_code == 401}
     except httpx.HTTPError as exc:
         return {"url": settings.crm_base_url, "reachable": False, "error": type(exc).__name__}
