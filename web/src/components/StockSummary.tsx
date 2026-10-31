@@ -1,9 +1,14 @@
 /* 基本介紹 + 最近狀況 for one TW code, from the engine's /api/stocks/{code}/summary. */
+import { useEffect } from "react";
 import { engine, useAsync } from "../api/client";
 import { cls, int, num, pctS, signed } from "../lib/format";
 
-export function StockSummary({ code, compact = false }: { code: string; compact?: boolean }) {
+/** Current price from a summary payload: live quote when present, else the last close. */
+export const summaryPrice = (s: any): number | null => (s?.price?.available ? s.price.quote?.price ?? s.price.close ?? null : null);
+
+export function StockSummary({ code, compact = false, onData }: { code: string; compact?: boolean; onData?: (s: any) => void }) {
   const q = useAsync(() => engine(`/stocks/${code}/summary`), [code]);
+  useEffect(() => { if (q.data && onData) onData(q.data); }, [q.data]); // eslint-disable-line react-hooks/exhaustive-deps
   if (q.error) return <div className="kv">引擎沒有 {code} 的資料：{q.error}</div>;
   const s = q.data;
   if (!s) return <div className="kv">載入中…</div>;

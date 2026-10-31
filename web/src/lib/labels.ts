@@ -4,7 +4,7 @@ export const L = {
   tier: { core: "核心", satellite: "衛星", watch: "觀察", blacklist: "黑名單" } as Record<string, string>,
   thesis: { intact: "成立", shaken: "動搖", broken: "失效" } as Record<string, string>,
   kind: {
-    buy: "買進", sell: "賣出", add: "加碼", trim: "減碼", news: "新聞", earnings: "財報", call: "法說", thought: "想法", review: "回顧",
+    buy: "買進", sell: "賣出", add: "加碼", trim: "減碼", news: "新聞", earnings: "財報", call: "法說", thought: "想法", review: "回顧", alert: "警示",
   } as Record<string, string>,
   rkind: { price: "到價", earnings: "財報", revenue: "營收", review: "回顧", other: "其他" } as Record<string, string>,
   conf: { high: "高", medium: "中", low: "低" } as Record<string, string>,
