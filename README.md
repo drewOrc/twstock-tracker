@@ -34,6 +34,8 @@ scripts\tunnel_install.ps1 -Hostname stocks.你的網域.com -Start   # 正式�
 
 可再加 Cloudflare Access 當外圍第二層；應用層身份仍以本機帳號為準。
 
+還沒有網域時，可以先把**臨時隧道**服務化：`scripts\tunnel_quick_install.ps1 -Start` 登記同名的 `TWStock Tunnel` 任務，開機自動跑 `*.trycloudflare.com` 網址並在斷線後重連。網址每次重啟都會變，所以引擎把目前的網址寫在 `data\tunnel-url.txt`、顯示在 `/api/health` 的 `public_url` 與「系統」頁，並在網址改變時透過 LINE / Email 推播（`tunnel_watch`）。之後有網域再跑 `tunnel_install.ps1 -Hostname …`，同名任務會被固定隧道取代；固定網址也可直接設 `.env` 的 `PUBLIC_URL`。
+
 ```bash
 python cli.py users create mom --name 媽媽 --line Uxxxxxxxx     # 建成員（會提示輸入密碼）
 python cli.py users create drew --admin
