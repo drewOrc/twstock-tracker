@@ -3,8 +3,30 @@ import { createContext, useCallback, useContext, useEffect, useState, type FormE
 import { crm, engine } from "../api/client";
 import { cnum, pct0, spct, toCode, tpe } from "../lib/format";
 import { L } from "../lib/labels";
-import { StockSummary } from "./StockSummary";
+import { StockSummary, summaryPrice } from "./StockSummary";
 import { useAction, useToast } from "./Toast";
+import { cls, num, pctS, signed } from "../lib/format";
+
+/** 市值 / 損益 / 距目標 / 距停損 from CRM position fields + the engine's current price. */
+export function Valuation({ p, price }: { p: any; price: number | null }) {
+  if (price == null) return null;
+  const shares = p.shares ?? null, cost = p.avg_cost ?? null;
+  const mv = shares ? shares * price : null;
+  const pnl = shares && cost ? (price - cost) * shares : null;
+  const pnlPct = cost ? ((price / cost) - 1) * 100 : null;
+  const toTarget = p.target_price ? ((p.target_price / price) - 1) * 100 : null;
+  const toStop = p.stop_price ? ((p.stop_price / price) - 1) * 100 : null;
+  if (mv == null && toTarget == null && toStop == null) return null;
+  return (
+    <div className="tiles small-tiles">
+      {mv != null && <div className="tile"><div className="k">市值</div><div className="v">{num(mv / 1e4, 1)} 萬</div><div className="s">{int(shares)} 股 × {num(price)}{cost ? ` · 成本 ${num(cost)}` : ""}</div></div>}
+      {pnl != null && <div className="tile"><div className="k">未實現損益</div><div className={`v ${cls(pnl)}`}>{signed(pnl / 1e4, 1)} 萬</div><div className="s">{pctS(pnlPct)}</div></div>}
+      {toTarget != null && <div className="tile"><div className="k">距目標價 {num(p.target_price)}</div><div className={`v ${cls(toTarget)}`}>{pctS(toTarget, 1)}</div><div className="s">{toTarget <= 0 ? "已達目標" : "還差"}</div></div>}
+      {toStop != null && <div className="tile"><div className="k">距停損價 {num(p.stop_price)}</div><div className={`v ${cls(toStop)}`}>{pctS(toStop, 1)}</div><div className="s">{toStop >= 0 ? "已跌破" : "緩衝"}</div></div>}
+    </div>
+  );
+}
+import { int } from "../lib/format";
 
 interface CardCtx {
   open: (ref: string | number) => void;
@@ -55,6 +77,7 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
   const [form, setForm] = useState<any>({});
   const [view, setView] = useState<"overview" | "thesis">("overview");
   const [preview, setPreview] = useState<string | null>(null); // TW code with no CRM card yet
+  const [price, setPrice] = useState<number | null>(null); // from the engine summary, for valuation
 
   const load = useCallback(async () => {
     try {
@@ -74,6 +97,7 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
       setForm({
         stage: card.stage, tier: card.tier, position_pct: card.position_pct, target_price: card.target_price ?? "", stop_price: card.stop_price ?? "",
         target_basis: card.target_basis ?? "", model_url: card.model_url ?? "", thesis: card.thesis ?? "", invalidation: card.invalidation ?? "",
+        shares: card.shares ?? "", avg_cost: card.avg_cost ?? "",
       });
     } catch (e: any) {
       // No card yet: a TW company id can still be previewed from engine data and turned into a card.
@@ -126,11 +150,16 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
   const F = (k: string) => (e: any) => setForm({ ...form, [k]: e.target.value });
 
   const save = () =>
-    write(() => crm("/positions", { method: "POST", body: {
-      company_id: p.company_id, stage: form.stage, tier: form.tier, position_pct: +form.position_pct, thesis: form.thesis, invalidation: form.invalidation,
-      target_price: form.target_price === "" ? null : +form.target_price, stop_price: form.stop_price === "" ? null : +form.stop_price,
-      target_basis: form.target_basis, model_url: form.model_url,
-    } }), "已儲存");
+    write(async () => {
+      await crm("/positions", { method: "POST", body: {
+        company_id: p.company_id, stage: form.stage, tier: form.tier, position_pct: +form.position_pct, thesis: form.thesis, invalidation: form.invalidation,
+        target_price: form.target_price === "" ? null : +form.target_price, stop_price: form.stop_price === "" ? null : +form.stop_price,
+        target_basis: form.target_basis, model_url: form.model_url,
+        shares: form.shares === "" ? null : Math.round(+form.shares), avg_cost: form.avg_cost === "" ? null : +form.avg_cost,
+      } });
+      // mirror target / stop into engine alert rules right away (scheduler does it every 15 min anyway)
+      if (twCode) engine("/alerts/sync-crm", { method: "POST" }).catch(() => {});
+    }, "已儲存，目標價 / 停損價已同步為警示");
 
   const checkTier = async (v: string) => {
     setForm({ ...form, position_pct: v });
@@ -171,7 +200,10 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
                   </div>
                 ))}
               </section>
-              {twCode ? <StockSummary code={twCode} compact /> : <section><h4>最近狀況</h4><div className="kv">{p.company_id} 不是台股，引擎沒有行情資料；基本介紹與近期重點以 CRM 的簡介為準。</div></section>}
+              {twCode && (p.shares || p.target_price || p.stop_price) && (
+                <section><h4>我的部位 <span className="kv">股數與成本來自 CRM 卡片，價格來自引擎</span></h4><Valuation p={p} price={price} /></section>
+              )}
+              {twCode ? <StockSummary code={twCode} compact onData={(s) => setPrice(summaryPrice(s))} /> : <section><h4>最近狀況</h4><div className="kv">{p.company_id} 不是台股，引擎沒有行情資料；基本介紹與近期重點以 CRM 的簡介為準。</div></section>}
             </div>
           )}
 
@@ -193,9 +225,14 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
             </div>
             {tierMsg && <div className={tierMsg.ok ? "ok-box" : "warn-box"}>{tierMsg.text}</div>}
             <div className="row3">
-              <label>目標價<input type="number" step="any" value={form.target_price} onChange={F("target_price")} /></label>
-              <label>停損價<input type="number" step="any" value={form.stop_price} onChange={F("stop_price")} /></label>
+              <label>目標價 <span className="kv">→ 自動建 price_above 警示</span><input type="number" step="any" value={form.target_price} onChange={F("target_price")} /></label>
+              <label>停損價 <span className="kv">→ 自動建 price_below 警示</span><input type="number" step="any" value={form.stop_price} onChange={F("stop_price")} /></label>
               <label>目標價依據<input placeholder="PE 30 × 2027E EPS" value={form.target_basis} onChange={F("target_basis")} /></label>
+            </div>
+            <div className="row3">
+              <label>持有股數<input type="number" step="1" min="0" placeholder="例如 3000" value={form.shares} onChange={F("shares")} /></label>
+              <label>平均成本（每股）<input type="number" step="any" min="0" value={form.avg_cost} onChange={F("avg_cost")} /></label>
+              <label className="kv" style={{ alignSelf: "end" }}>{price != null ? `現價 ${num(price)}（引擎）` : "引擎無價格"}</label>
             </div>
             <label>估值模型檔案<input placeholder="試算表路徑或連結" value={form.model_url} onChange={F("model_url")} /></label>
           </section>

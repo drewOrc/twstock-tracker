@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.db import DEFAULT_LIST_NAME, engine, init_db, session_scope
 from app.main import app
-from app.models import AlertRule, Stock, Watchlist, WatchlistItem
+from app.models import AlertEvent, AlertRule, Stock, Watchlist, WatchlistItem
 from app.services import market_data as md
 from app.services import watchlists as wls
 
@@ -26,6 +26,7 @@ def db():
     with session_scope() as s:
         s.query(WatchlistItem).delete()
         s.query(Watchlist).delete()
+        s.query(AlertEvent).delete()
         s.query(AlertRule).delete()
         for code, name, market in (("2330", "台積電", "TWSE"), ("6488", "環球晶", "TPEX"), ("0050", "元大台灣50", "TWSE")):
             if not s.get(Stock, code):

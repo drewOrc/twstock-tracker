@@ -13,7 +13,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from .config import settings
 from .db import session_scope
 from .models import JobRun
-from .services import alerts, breadth, screener, watchlists
+from .services import alerts, breadth, crm_link, screener, watchlists
 from .services import market_data as md
 from .utils import is_trading_hours, now_tw
 
@@ -53,7 +53,14 @@ def job_institutional(db) -> dict:
 
 
 def job_sync_lists(db) -> dict:
-    return watchlists.sync_system_lists(db)
+    out = {"lists": watchlists.sync_system_lists(db)}
+    if settings.crm_sync_alerts:
+        out["crm_alerts"] = crm_link.sync_target_alerts(db)
+    return out
+
+
+def job_sync_crm_alerts(db) -> dict:
+    return crm_link.sync_target_alerts(db)
 
 
 def _run_screens(db) -> dict:
@@ -121,6 +128,7 @@ JOBS: dict[str, Callable] = {
     "market_backfill": job_market_backfill,
     "screener": job_screener,
     "sync_lists": job_sync_lists,
+    "sync_crm_alerts": job_sync_crm_alerts,
     "stock_list": job_stock_list,
     "alerts_daily": job_alerts_daily,
     "full_daily": job_full_daily,

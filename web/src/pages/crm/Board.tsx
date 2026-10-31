@@ -5,6 +5,26 @@ import { useAction } from "../../components/Toast";
 import { cls, num, pctS, signed, toCode } from "../../lib/format";
 import { L } from "../../lib/labels";
 
+/** Column header extra for 持有: total market value and today's P&L when shares are filled in. */
+function HoldTotals({ cards, mktBy }: { cards: any[]; mktBy: Record<string, any> }) {
+  let mv = 0, day = 0, cost = 0, n = 0;
+  for (const p of cards) {
+    const code = toCode(p.company_id);
+    const m = code ? mktBy[code] : null;
+    if (!p.shares || !m || m.price == null) continue;
+    n++;
+    mv += p.shares * m.price;
+    if (m.change != null) day += p.shares * m.change;
+    if (p.avg_cost) cost += p.shares * p.avg_cost;
+  }
+  if (!n) return null;
+  return (
+    <span className="muted" style={{ marginLeft: 8, textTransform: "none", letterSpacing: 0 }}>
+      市值 {num(mv / 1e4, 0)} 萬 · 今日 <b className={cls(day)}>{signed(day / 1e4, 1)} 萬</b>{cost ? <> · 未實現 <b className={cls(mv - cost)}>{pctS(((mv / cost) - 1) * 100, 1)}</b></> : null}
+    </span>
+  );
+}
+
 export default function Board() {
   const card = useCard();
   const act = useAction();
@@ -48,7 +68,7 @@ export default function Board() {
         <div className="board">
           {(["hold", "watch", "exited"] as const).map((s) => (
             <div className="col" key={s}>
-              <h3><span>{L.stage[s]}</span><span>{cols[s].length}{s === "hold" ? " · " + cols[s].reduce((a, p) => a + p.position_pct, 0).toFixed(1) + "%" : ""}</span></h3>
+              <h3><span>{L.stage[s]}</span><span>{cols[s].length}{s === "hold" ? " · " + cols[s].reduce((a, p) => a + p.position_pct, 0).toFixed(1) + "%" : ""}{s === "hold" && <HoldTotals cards={cols[s]} mktBy={mktBy} />}</span></h3>
               {cols[s].map((p) => {
                 const stale = p.stage === "hold" && p.days_since_update >= 30;
                 const m = toCode(p.company_id) ? mktBy[toCode(p.company_id)!] : null;
@@ -67,8 +87,9 @@ export default function Board() {
                     {m && m.price != null && (
                       <div className="mkt-line">
                         <span className={cls(m.change)}>{num(m.price)} {pctS(m.change_pct)}</span>
+                        {p.shares ? <span className="muted">市值 {num((p.shares * m.price) / 1e4, 0)} 萬{p.avg_cost ? <> · <b className={cls(m.price - p.avg_cost)}>{pctS(((m.price / p.avg_cost) - 1) * 100, 1)}</b></> : null}</span> : null}
                         {m.foreign_net_lots != null && <span className="muted">外資 <b className={cls(m.foreign_net_lots)}>{signed(m.foreign_net_lots)}</b> 張</span>}
-                        {m.margin_change != null && <span className="muted">融資 {signed(m.margin_change)}</span>}
+                        {p.target_price && <span className="muted">目標 {pctS(((p.target_price / m.price) - 1) * 100, 0)}</span>}
                       </div>
                     )}
                     {p.latest_brief?.text && <div className="brief-line" title={p.latest_brief.text}>{p.latest_brief.date} · {p.latest_brief.text}</div>}

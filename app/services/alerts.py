@@ -152,6 +152,17 @@ def _ready(rule: AlertRule, now: datetime) -> bool:
     return now - rule.last_triggered_at >= timedelta(minutes=rule.cooldown_minutes or 0)
 
 
+def _last_price(db: Session, code: str) -> float | None:
+    """Realtime price if we have one, else the latest close (for CRM interaction proposals)."""
+    from ..models import DailyPrice, RealtimeQuote
+
+    q = db.get(RealtimeQuote, code)
+    if q and q.price is not None:
+        return q.price
+    row = db.execute(select(DailyPrice.close).where(DailyPrice.code == code).order_by(DailyPrice.date.desc()).limit(1)).scalar()
+    return float(row) if row is not None else None
+
+
 def _label(db: Session, code: str) -> str:
     stock = db.get(Stock, code)
     return f"{code} {stock.name}" if stock and stock.name else code
@@ -160,6 +171,14 @@ def _label(db: Session, code: str) -> str:
 def fire(db: Session, rule: AlertRule, message: str, value: float | None, now: datetime) -> AlertEvent:
     title = f"【{_label(db, rule.code)}】{RULE_TYPES.get(rule.rule_type, {}).get('label', rule.rule_type)}"
     delivery = notifier.send(title, message)
+    try:  # mirror into the CRM as an interaction proposal when the stock has a card
+        from .crm_link import notify_alert
+
+        price = value if rule.rule_type.startswith("price_") else _last_price(db, rule.code)
+        delivery["crm"] = notify_alert(rule.code, rule, title, message, price)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("CRM proposal for alert failed: %s", exc)
+        delivery["crm"] = f"error: {type(exc).__name__}"
     event = AlertEvent(
         rule_id=rule.id,
         code=rule.code,
