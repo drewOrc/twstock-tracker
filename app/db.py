@@ -89,6 +89,7 @@ def init_db() -> None:
 ENGINE_TABLES: dict[str, tuple[str, str]] = {
     "users": ("auth", "local accounts; the CRM reads id/username/display_name/role, never password_hash"),
     "sessions": ("auth", "login sessions"),
+    "agent_keys": ("auth", "API keys for external agents (hashed); scopes + acting user"),
     "schema_registry": ("ops", "this table; each side upserts rows for the tables it owns"),
     "stocks": ("knowledge", "TWSE/TPEx master list (code without market prefix)"),
     "daily_prices": ("knowledge", "daily OHLCV"),

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,7 +16,7 @@ from ..db import get_db
 from ..models import User
 from ..services import etf_holdings, knowledge_jobs, mops
 from ..services import knowledge as kn
-from .deps import current_user, require_admin
+from .deps import agent_of, current_user, require_admin
 
 router = APIRouter(tags=["knowledge"], dependencies=[Depends(current_user)])
 
@@ -134,6 +134,40 @@ def put_fund_holdings(fund_id: str, body: HoldingsIn, _: User = Depends(require_
 @router.post("/funds/{fund_id}/refresh")
 def refresh_fund(fund_id: str, _: User = Depends(require_admin), db: Session = Depends(get_db)):
     return etf_holdings.refresh_tw_funds(db, [fund_id.upper()])
+
+
+@router.get("/tasks")
+def tasks(limit: int = Query(5, le=20), company: str | None = None, news: bool = True, db: Session = Depends(get_db)):
+    """Work packets for agents: companies that still lack a profile / fresh highlights / relations, each
+    with the engine's own material bundled (exchange profile, numbers, known edges, headlines). An
+    agent reads these and answers with proposals; it never has to scrape the engine's sources itself."""
+    from ..models import Company
+    from ..services import extractor
+
+    if company:
+        c = db.get(Company, company.upper())
+        if c is None:
+            raise HTTPException(404, "unknown company")
+        targets = [(c, ["requested"])]
+    else:
+        todo = knowledge_jobs.todo(db, limit=10000)
+        needs: dict[str, list[str]] = {}
+        for key, label in (("missing_profile", "profile"), ("stale_highlights", "highlights"), ("isolated_companies", "edges")):
+            for r in todo[key]:
+                needs.setdefault(r["id"], []).append(label)
+        targets = []
+        for cid, labels in needs.items():
+            c = db.get(Company, cid)
+            if c is not None and c.sector != "ETF":
+                targets.append((c, labels))
+            if len(targets) >= limit:
+                break
+    out = []
+    for c, labels in targets:
+        m = extractor.material(db, c, with_news=news)
+        out.append({"company_id": c.id, "name": c.name, "needs": labels, "material": m,
+                    "answer_with": {"endpoint": "POST /api/market/knowledge/proposals/batch", "kinds": ["brief", "edge", "metric"], "company_id_format": "TW:2330 / US:NVDA"}})
+    return out
 
 
 @router.get("/companies")
@@ -268,17 +302,25 @@ def proposal_counts(db: Session = Depends(get_db)):
     return kp.counts(db)
 
 
-@router.post("/proposals", status_code=201)
-def post_proposal(body: ProposalIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    data = body.model_dump(exclude_none=True)
-    if not user.role == "admin" and data.get("created_by", "").startswith("system:"):
+def _stamp(request: Request, user: User, data: dict) -> dict:
+    """Who a proposal is from: an agent key is always `agent:<name>`; members cannot pose as a system."""
+    agent = agent_of(request)
+    if agent is not None:
+        data["created_by"] = f"agent:{agent.name}"
+    elif user.role != "admin" and str(data.get("created_by", "")).startswith("system:"):
         data["created_by"] = f"user:{user.username}"
+    return data
+
+
+@router.post("/proposals", status_code=201)
+def post_proposal(body: ProposalIn, request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    data = _stamp(request, user, body.model_dump(exclude_none=True))
     return kp.to_dict(_run(kp.propose, db, data, user))
 
 
 @router.post("/proposals/batch", status_code=201)
-def post_proposals(body: list[ProposalIn], user: User = Depends(current_user), db: Session = Depends(get_db)):
-    items = [b.model_dump(exclude_none=True) for b in body]
+def post_proposals(body: list[ProposalIn], request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    items = [_stamp(request, user, b.model_dump(exclude_none=True)) for b in body]
     return [kp.to_dict(r) for r in _run(kp.propose_many, db, items, user)]
 
 

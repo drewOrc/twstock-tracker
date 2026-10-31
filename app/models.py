@@ -437,3 +437,24 @@ class KnowledgeProposal(Base):
     decided_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)  # reviewer note / apply error
     applied_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class AgentKey(Base):
+    """API key for an external agent (Grok bot, a Claude session, a script). The key is stored as a
+    SHA-256 hash and shown once at creation. scopes limit what it may do; acting_user_id is whose data
+    it reads and in whose name it proposes. Agent keys never reach admin routes."""
+
+    __tablename__ = "agent_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(48), unique=True)
+    prefix: Mapped[str] = mapped_column(String(16))  # first characters, for display
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    scopes: Mapped[list] = mapped_column(JSON, default=list)  # market:read | knowledge:propose | personal:read
+    acting_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    rate_per_minute: Mapped[int] = mapped_column(Integer, default=60)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False)

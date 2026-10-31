@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from . import scheduler  # noqa: E402
-from .api import auth_routes, crm_proxy, knowledge_routes, routes  # noqa: E402
+from .api import agent_routes, auth_routes, crm_proxy, knowledge_routes, routes  # noqa: E402
 from .config import BASE_DIR, settings  # noqa: E402
 from .db import init_db  # noqa: E402
 
@@ -64,6 +64,7 @@ app.add_middleware(
 app.include_router(routes.public, prefix="/api")
 app.include_router(auth_routes.router)
 app.include_router(auth_routes.admin_router)
+app.include_router(agent_routes.router)
 app.include_router(routes.market, prefix="/api/market")
 app.include_router(knowledge_routes.router, prefix="/api/market/knowledge")
 app.include_router(routes.me, prefix="/api/me")
