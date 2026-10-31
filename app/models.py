@@ -306,7 +306,7 @@ class SchemaRegistry(Base):
 
 
 class Company(Base):
-    """Graph node. id is MARKET:TICKER ("TW:2330", "US:NVDA"); TW ids map onto `stocks.code`."""
+    """Graph node. id is MARKET:TICKER ("TW:2330", "US:NVDA", "KR:005930"); TW ids map onto `stocks.code`."""
 
     __tablename__ = "knowledge_companies"
 
@@ -458,3 +458,46 @@ class AgentKey(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class IndustryChain(Base):
+    """TPEx 產業價值鏈 industry (id = platform code, e.g. D000 半導體). System-fetched, replaced weekly."""
+
+    __tablename__ = "knowledge_chains"
+
+    id: Mapped[str] = mapped_column(String(8), primary_key=True)
+    name: Mapped[str] = mapped_column(String(64))
+    intro: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ChainSegment(Base):
+    """A segment of a chain (stage 上游 / 中游 / 下游); sub-segments carry parent_code."""
+
+    __tablename__ = "knowledge_chain_segments"
+    __table_args__ = (UniqueConstraint("chain_id", "code", name="uq_chain_segment"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chain_id: Mapped[str] = mapped_column(String(8), index=True)
+    code: Mapped[str] = mapped_column(String(8))
+    parent_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    name: Mapped[str] = mapped_column(String(128))
+    stage: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    sort: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ChainMember(Base):
+    """A company listed in a segment. company_id = TW:<code> for TW-listed / OTC / emerging names;
+    NULL for the platform's 知名外國企業 entries (name + url only)."""
+
+    __tablename__ = "knowledge_chain_members"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chain_id: Mapped[str] = mapped_column(String(8), index=True)
+    segment_code: Mapped[str] = mapped_column(String(8))
+    company_id: Mapped[str | None] = mapped_column(String(24), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    listing: Mapped[str | None] = mapped_column(String(16), nullable=True)  # 上市 | 上櫃 | 興櫃 | 外國上市 | 外國企業 ...
+    url: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    listed: Mapped[bool] = mapped_column(Boolean, default=False)  # code found in the engine's stocks master list

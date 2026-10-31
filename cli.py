@@ -91,6 +91,9 @@ def main(argv: list[str] | None = None) -> int:
     kpa = ksub.add_parser("approve", help="approve pending proposals as the admin (all, or --kind / --ids)")
     kpa.add_argument("--kind", default=None)
     kpa.add_argument("--ids", default=None, help="comma separated")
+    kc = ksub.add_parser("chains", help="fetch TPEx industry value chains (all, or --ic D000,L000); --show <ic|TW:code> prints one")
+    kc.add_argument("--ic", default=None, help="comma separated chain codes")
+    kc.add_argument("--show", default=None, help="chain code (D000) or company id (TW:2330)")
     kh = ksub.add_parser("holdings", help="load / refresh ETF constituents as holding edges")
     kh.add_argument("fund", help="TW:0050, TW:00981A (fetched from MoneyDJ) or any id with --file")
     kh.add_argument("--file", default=None, help="JSON {as_of, source, fund_name, rows:[{company_id|code|name, name, weight_pct}]}")
@@ -222,6 +225,14 @@ def main(argv: list[str] | None = None) -> int:
                 _dump(kn.stats(db))
             elif args.kcmd in ("sync", "highlights"):
                 _dump(sched.run_job("knowledge_sync" if args.kcmd == "sync" else "knowledge_highlights"))
+            elif args.kcmd == "chains":
+                from app.services import industry_chains as icn
+                if args.show:
+                    _dump(icn.for_company(db, args.show) if ":" in args.show else icn.chain_detail(db, args.show))
+                elif args.ic:
+                    _dump(icn.refresh(db, args.ic.split(",")))
+                else:
+                    _dump(sched.run_job("industry_chains"))
             elif args.kcmd == "holdings":
                 import json as _json
                 from datetime import date as _date

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import User
-from ..services import etf_holdings, knowledge_jobs, mops
+from ..services import etf_holdings, industry_chains, knowledge_jobs, mops
 from ..services import knowledge as kn
 from .deps import agent_of, current_user, require_admin
 
@@ -99,13 +99,38 @@ def _by(user: User, given: str | None) -> str:
 # ---------------------------------------------------------------- reads
 @router.get("/stats")
 def stats(db: Session = Depends(get_db)):
-    return kn.stats(db) | {"official_data": mops.status(db)}
+    return kn.stats(db) | {"official_data": mops.status(db), "industry_chains": industry_chains.stats(db)}
 
 
 @router.get("/todo")
 def todo(stale_days: int = 45, db: Session = Depends(get_db)):
     """What still needs a human or an LLM: missing profiles, stale highlights, isolated nodes, unsourced edges."""
     return knowledge_jobs.todo(db, stale_days)
+
+
+@router.get("/chains")
+def chains(db: Session = Depends(get_db)):
+    """TPEx industry value chains with company counts."""
+    return {"stats": industry_chains.stats(db), "chains": industry_chains.chains(db)}
+
+
+@router.get("/chains/{chain_id}")
+def chain(chain_id: str, db: Session = Depends(get_db)):
+    d = industry_chains.chain_detail(db, chain_id)
+    if d is None:
+        raise HTTPException(404, "no such chain")
+    return d
+
+
+@router.get("/companies/{company_id}/chains")
+def company_chains(company_id: str, peers: int = Query(30, ge=0, le=200), db: Session = Depends(get_db)):
+    """Every chain segment the company is listed in, with the other companies in that segment."""
+    return industry_chains.for_company(db, company_id, peers)
+
+
+@router.post("/chains/refresh")
+def refresh_chains(ic: str | None = None, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return industry_chains.refresh(db, ic.split(",") if ic else None)
 
 
 @router.get("/funds")
@@ -166,7 +191,7 @@ def tasks(limit: int = Query(5, le=20), company: str | None = None, news: bool =
     for c, labels in targets:
         m = extractor.material(db, c, with_news=news)
         out.append({"company_id": c.id, "name": c.name, "needs": labels, "material": m,
-                    "answer_with": {"endpoint": "POST /api/market/knowledge/proposals/batch", "kinds": ["brief", "edge", "metric"], "company_id_format": "TW:2330 / US:NVDA"}})
+                    "answer_with": {"endpoint": "POST /api/market/knowledge/proposals/batch", "kinds": ["brief", "edge", "metric"], "company_id_format": "TW:2330 / US:NVDA / KR:005930"}})
     return out
 
 

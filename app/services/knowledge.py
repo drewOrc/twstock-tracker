@@ -20,7 +20,7 @@ CONFIDENCES = ("high", "medium", "low")
 RELATIONS = ("customer", "partner", "holding")
 BRIEF_KINDS = ("profile", "highlights")
 METRICS = ("revenue_m", "revenue_q", "gross_margin", "opex", "eps", "shares")
-MARKETS = ("TW", "US")
+MARKETS = ("TW", "US", "KR")  # KR: Korean names in the supply chain (Samsung, SK hynix); knowledge only, no quotes
 
 
 def company_id_for(code: str, market: str = "TW") -> str:
@@ -101,7 +101,7 @@ def metric_dict(m: MetricActual) -> dict:
 def upsert_company(db: Session, data: dict) -> Company:
     cid = (data.get("id") or "").strip().upper()
     if ":" not in cid:
-        raise ValueError("id must look like TW:2330 or US:NVDA")
+        raise ValueError("id must look like TW:2330, US:NVDA or KR:005930")
     market, ticker = cid.split(":", 1)
     _check(market, MARKETS, "market")
     c = db.get(Company, cid)
