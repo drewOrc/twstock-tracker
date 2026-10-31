@@ -54,6 +54,24 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("lists", help="show all watchlists with counts")
     sub.add_parser("sync-lists", help="rebuild the system watchlists (CRM, screener, alerts)")
+
+    us = sub.add_parser("users", help="manage local accounts")
+    usub = us.add_subparsers(dest="ucmd", required=True)
+    uc = usub.add_parser("create", help="create a user (prompts for the password when --password is omitted)")
+    uc.add_argument("username")
+    uc.add_argument("--password")
+    uc.add_argument("--admin", action="store_true")
+    uc.add_argument("--name", dest="display_name")
+    uc.add_argument("--line", dest="line_user_id")
+    uc.add_argument("--email")
+    up = usub.add_parser("passwd", help="set a user's password (logs them out everywhere)")
+    up.add_argument("username")
+    up.add_argument("--password")
+    usub.add_parser("list", help="list users")
+    ud = usub.add_parser("disable", help="disable a user")
+    ud.add_argument("username")
+    ue = usub.add_parser("enable", help="re-enable a user")
+    ue.add_argument("username")
     sub.add_parser("update", help="run daily prices + institutional + margin + alert evaluation")
 
     b = sub.add_parser("backfill", help="backfill daily history for a code")
@@ -93,21 +111,56 @@ def main(argv: list[str] | None = None) -> int:
 
     init_db()
 
+    if args.cmd == "users":
+        import getpass
+
+        from app.models import User
+        from app.services import auth
+
+        with session_scope() as db:
+            if args.ucmd == "list":
+                for u in auth.list_users(db):
+                    print(f"{u.id:>3}  {u.username:<16} {u.role:<7} {u.display_name or '':<12} line={'yes' if u.line_user_id else 'no':<4} email={u.email or '-':<24} {'DISABLED' if u.disabled else ''}")
+                return 0
+            if args.ucmd == "create":
+                pw = args.password or getpass.getpass("password (min 8 chars): ")
+                u = auth.create_user(db, args.username, pw, "admin" if args.admin else "member", args.display_name, args.line_user_id, args.email)
+                print(f"created {u.username} ({u.role}) id={u.id}")
+                return 0
+            u = db.query(User).filter_by(username=args.username.lower()).first()
+            if not u:
+                print("no such user")
+                return 1
+            if args.ucmd == "passwd":
+                auth.set_password(db, u, args.password or getpass.getpass("new password: "))
+                print("password updated; all sessions revoked")
+            elif args.ucmd in ("disable", "enable"):
+                u.disabled = args.ucmd == "disable"
+                db.commit()
+                print(f"{u.username} {'disabled' if u.disabled else 'enabled'}")
+        return 0
+
+    # watchlist commands act as the (first) admin account
+    from app.services import auth as _auth
+
+    with session_scope() as db:
+        admin_id = _auth.ensure_admin(db).id
+
     def resolve_list(db, name: str | None, create: bool = False):
         if not name:
             return None
-        for w in wls.list_watchlists(db):
+        for w in wls.list_watchlists(db, admin_id):
             if w["name"] == name:
                 return w["id"]
         if create:
-            return wls.create_watchlist(db, name).id
+            return wls.create_watchlist(db, admin_id, name).id
         print(f"no watchlist named {name!r}")
         sys.exit(1)
 
     if args.cmd == "add":
         with session_scope() as db:
             lid = resolve_list(db, args.list_name, create=True)
-            r = wls.add_code(db, args.code, [lid] if lid else None, args.note)
+            r = wls.add_code(db, admin_id, args.code, [lid] if lid else None, args.note)
             print(f"{'added' if r['added_to'] else 'already in list:'} {r['code']} {r['name']} ({r['market']}) lists={r['lists']}")
         if not args.no_backfill and r["is_new"]:
             with session_scope() as db:
@@ -120,13 +173,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "remove":
         with session_scope() as db:
             lid = resolve_list(db, args.list_name)
-            r = wls.remove_code(db, args.code, lid)
+            r = wls.remove_code(db, admin_id, args.code, lid)
         print("removed" if r["removed"] else "not in watchlist", f"remaining lists={r['lists']}", "(unsubscribed, alert rules removed)" if r["unsubscribed"] else "")
         return 0
 
     if args.cmd == "lists":
         with session_scope() as db:
-            for w in wls.list_watchlists(db):
+            for w in wls.list_watchlists(db, admin_id):
                 print(f"{w['id']:>3}  {w['name']:<10} {w['count']:>4} 檔  {'(系統: ' + w['system_key'] + ')' if w['system_key'] else ''}")
         return 0
 
@@ -137,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "list":
         with session_scope() as db:
-            rows = md.watchlist_overview(db, resolve_list(db, args.list_name))
+            rows = md.watchlist_overview(db, resolve_list(db, args.list_name), user_id=admin_id)
         if not rows:
             print("watchlist is empty")
             return 0

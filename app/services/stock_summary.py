@@ -214,20 +214,28 @@ def chips_block(db: Session, code: str) -> dict:
 
 
 # ---------------------------------------------------------------------- context block
-def context_block(db: Session, code: str) -> dict:
+def context_block(db: Session, code: str, user_id: int | None = None) -> dict:
+    """Screener placement is shared; alerts and lists are the caller's own when user_id is given."""
     latest_date = db.execute(select(func.max(ScreenerResult.date)).where(ScreenerResult.code == code)).scalar()
     screens = []
     if latest_date:
         for r in db.execute(select(ScreenerResult).where(ScreenerResult.code == code, ScreenerResult.date == latest_date).order_by(ScreenerResult.preset)).scalars():
             screens.append({"preset": r.preset, "date": r.date.isoformat(), "rank": r.rank, "score": r.score, "tags": r.tags})
-    events = db.execute(select(AlertEvent).where(AlertEvent.code == code).order_by(AlertEvent.triggered_at.desc()).limit(5)).scalars()
-    rules = db.execute(select(func.count()).select_from(AlertRule).where(AlertRule.code == code, AlertRule.enabled.is_(True))).scalar()
-    lists = db.execute(
+    ev_stmt = select(AlertEvent).where(AlertEvent.code == code).order_by(AlertEvent.triggered_at.desc()).limit(5)
+    rule_stmt = select(func.count()).select_from(AlertRule).where(AlertRule.code == code, AlertRule.enabled.is_(True))
+    list_stmt = (
         select(Watchlist.id, Watchlist.name, Watchlist.system_key, Watchlist.color)
         .join(WatchlistItem, WatchlistItem.watchlist_id == Watchlist.id)
         .where(WatchlistItem.code == code)
         .order_by(Watchlist.sort_order)
-    ).all()
+    )
+    if user_id is not None:
+        ev_stmt = ev_stmt.where(AlertEvent.user_id == user_id)
+        rule_stmt = rule_stmt.where(AlertRule.user_id == user_id)
+        list_stmt = list_stmt.where(Watchlist.user_id == user_id)
+    events = db.execute(ev_stmt).scalars()
+    rules = db.execute(rule_stmt).scalar()
+    lists = db.execute(list_stmt).all()
     return {
         "screener": screens,
         "alert_rules": rules,
@@ -273,7 +281,7 @@ def parse_rss(xml_text: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------- assemble
-def stock_summary(db: Session, code: str, with_news: bool = True) -> dict:
+def stock_summary(db: Session, code: str, with_news: bool = True, user_id: int | None = None) -> dict:
     code = code.strip().upper()
     stock = db.get(Stock, code)
     if stock is None:
@@ -283,7 +291,7 @@ def stock_summary(db: Session, code: str, with_news: bool = True) -> dict:
         "profile": profile(stock),
         "price": price_block(db, stock),
         "chips": chips_block(db, code),
-        "context": context_block(db, code),
+        "context": context_block(db, code, user_id),
     }
     if with_news:
         items, err = fetch_news(stock.name or code)

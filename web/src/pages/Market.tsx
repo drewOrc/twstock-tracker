@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { engine, useAsync } from "../api/client";
+import { admin, engine, useAsync } from "../api/client";
+import { useMe } from "../components/Auth";
 import { useAction, useToast } from "../components/Toast";
 import { cls, pctS, signed, yi } from "../lib/format";
 
@@ -14,6 +15,7 @@ const PctCell = ({ v }: { v: number | null | undefined }) =>
 export default function Market() {
   const toast = useToast();
   const act = useAction();
+  const { me } = useMe();
   const dates = useAsync<string[]>(() => engine("/market/dates?limit=60"), []);
   const [date, setDate] = useState<string | null>(null);
   const d = date ?? dates.data?.[0] ?? null;
@@ -30,7 +32,7 @@ export default function Market() {
   };
   const runJob = (name: string, msg: string, wait: number) =>
     act(async () => {
-      await engine(`/jobs/${name}/run`, { method: "POST" });
+      await admin(`/jobs/${name}/run`, { method: "POST" });
       toast(msg);
       setTimeout(() => { dates.reload(); b.reload(); hist.reload(); sh.reload(); }, wait);
     });
@@ -53,8 +55,8 @@ export default function Market() {
             {(dates.data ?? []).map((v) => <option key={v}>{v}</option>)}
           </select>
           <button className="ghost" onClick={() => nav(-1)} title="後一交易日">›</button>
-          <button className="ghost" onClick={() => runJob("market_daily", "全市場更新已開始，約 10 秒", 10000)}>更新全市場</button>
-          <button className="ghost" onClick={() => runJob("market_backfill", "回補 20 日已在背景開始，約 1–2 分鐘", 90000)}>回補 20 日</button>
+          {me?.role === "admin" && <><button className="ghost" onClick={() => runJob("market_daily", "全市場更新已開始，約 10 秒", 10000)}>更新全市場</button>
+          <button className="ghost" onClick={() => runJob("market_backfill", "回補 20 日已在背景開始，約 1–2 分鐘", 90000)}>回補 20 日</button></>}
         </div>
       </div>
       {!x?.available && !b.loading && <div className="empty">尚無全市場資料，按「更新全市場」或「回補 20 日」。</div>}

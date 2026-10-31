@@ -17,6 +17,38 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
 
+class User(Base):
+    """Local account. role: admin (runs jobs, manages users, approves shared-layer proposals) | member."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    display_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    password_hash: Mapped[str] = mapped_column(String(256))
+    role: Mapped[str] = mapped_column(String(16), default="member")  # admin | member
+    line_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # per-user LINE push target
+    email: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class UserSession(Base):
+    """Server-side session; the cookie holds only the random token so sessions can be revoked."""
+
+    __tablename__ = "sessions"
+
+    token: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+    user: Mapped[User] = relationship(lazy="joined")
+
+
 class Stock(Base):
     """Master list of listed (TWSE) and OTC (TPEx) securities."""
 
@@ -46,12 +78,17 @@ class Watchlist(Base):
     System lists (system_key set) are maintained automatically and cannot be edited by hand."""
 
     __tablename__ = "watchlists"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_watchlist_user_name"),
+        UniqueConstraint("user_id", "system_key", name="uq_watchlist_user_system"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(64))
     color: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    system_key: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True)
+    system_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
@@ -206,6 +243,7 @@ class AlertRule(Base):
     __tablename__ = "alert_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
     code: Mapped[str] = mapped_column(String(12), index=True)
     rule_type: Mapped[str] = mapped_column(String(32))
     params: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -224,6 +262,7 @@ class AlertEvent(Base):
     __tablename__ = "alert_events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
     rule_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("alert_rules.id", ondelete="SET NULL"), nullable=True)
     code: Mapped[str] = mapped_column(String(12), index=True)
     rule_type: Mapped[str] = mapped_column(String(32))
