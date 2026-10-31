@@ -115,7 +115,7 @@ export default function Watchlist() {
         </div>
 
         <div className="list-tabs">
-          <button className={listId === ALL ? "active" : ""} onClick={() => setListId(ALL)}>全部 <span className="cnt">{new Set((lists.data ?? []).length ? rows.map((r) => r.code) : []).size || ""}</span></button>
+          <button className={listId === ALL ? "active" : ""} onClick={() => setListId(ALL)}>全部{listId === ALL && rows.length ? <span className="cnt">{rows.length}</span> : null}</button>
           {(lists.data ?? []).map((l) => (
             <button key={l.id} className={listId === l.id ? "active" : ""} onClick={() => setListId(l.id)} title={l.system_key ? "系統清單：自動維護" : ""}>
               <i className="sw" style={{ background: l.color ?? "var(--none)" }} />{l.name} <span className="cnt">{l.count}</span>{l.system_key && <span className="sys">自動</span>}
