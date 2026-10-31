@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # Stock CRM backend proxied under /api/crm/* (separate process, separate repo)
     crm_base_url: str = "http://127.0.0.1:8765"
     crm_timeout: float = 30.0
+    crm_sync_alerts: bool = True  # mirror CRM target / stop prices as alert rules
+    crm_proposals: bool = True  # write fired alerts back to CRM as interaction proposals
+    crm_alert_kind: str = "alert"  # interaction kind for those proposals ("news" if the CRM lacks "alert")
 
     # http
     http_timeout: float = 20.0

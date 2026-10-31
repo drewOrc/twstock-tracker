@@ -213,6 +213,9 @@ class AlertRule(Base):
     one_shot: Mapped[bool] = mapped_column(Boolean, default=False)
     cooldown_minutes: Mapped[int] = mapped_column(Integer, default=60)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # provenance: None = created by the user; "crm_target" / "crm_stop" = mirrored from a CRM card
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    source_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)  # e.g. CRM position id
     last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 

@@ -110,6 +110,17 @@ powershell -ExecutionPolicy Bypass -File scripts\service_uninstall.ps1          
 
 寫成文字的「公司簡介」與「近期重點」屬於 Stock CRM 的 `company_briefs`（由 agent 讀本端點與月營收後產生、走提案核准），前端在卡片的「概況」檢視同時顯示兩邊。
 
+## 與 Stock CRM 的互嵌（建卡 → 目標價 → 警示 → 證據鏈）
+
+| 方向 | 機制 |
+| --- | --- |
+| CRM 卡片 → 引擎追蹤 | 系統清單「CRM 持有 / 觀察」每 15 分鐘同步卡片代號並自動回補 |
+| CRM 目標價 / 停損價 → 引擎警示 | 同一個同步工作把每張台股卡片的 `target_price` 鏡射成 `price_above`、`stop_price` 鏡射成 `price_below` 規則（`source=crm_target / crm_stop`，冷卻 7 天）；改價即更新，清掉或卡片出場即刪除。前端儲存卡片後也會立刻呼叫 `POST /api/alerts/sync-crm` |
+| 引擎警示觸發 → CRM 證據 | `alerts.fire()` 透過 `POST /api/proposals` 送 kind=interaction（互動種類 `alert`，舊版 CRM 自動退回 `news`）、附觸發價與規則說明的**提案**，你在「提案」頁核准後才進卡片時間軸。沒有卡片的股票不送；CRM 離線只記在事件的 `delivery.crm` |
+| 部位與損益 | CRM 卡片的 `shares` / `avg_cost` + 引擎現價 → 卡片概況顯示市值、未實現損益、距目標 / 距停損 %；看板持有欄顯示合計市值與今日損益 |
+
+`.env` 開關：`CRM_SYNC_ALERTS`、`CRM_PROPOSALS`、`CRM_ALERT_KIND`。
+
 ## 多追蹤池
 
 `watchlists`（清單）與 `watchlist_items`（清單 × 代號）多對多。資料訂閱（回補、即時報價、法人、警示評估）以所有清單的代號聯集計算，同一檔在幾個清單都只抓一次。舊版的單一追蹤池會在啟動時自動遷入預設清單「我的追蹤」。
@@ -241,6 +252,7 @@ PATCH  /api/alerts/{id}        {"enabled":false}
 DELETE /api/alerts/{id}
 GET    /api/alerts/events?limit=100
 POST   /api/alerts/evaluate
+POST   /api/alerts/sync-crm                         # 鏡射 CRM 目標價 / 停損價為警示規則
 GET    /api/market/dates                            # 有全市場資料的日期
 GET    /api/market/breadth?date=2026-10-30          # 家數、類股、分布、排行
 GET    /api/market/breadth/history?days=30
@@ -284,6 +296,7 @@ app/
     watchlists.py      多追蹤池：清單 CRUD、成員關係、系統清單同步
     health.py          資料健康：各表新鮮度、失敗工作、儲存空間
     stock_summary.py   個股概況：基本介紹、相對強弱、籌碼、脈絡、新聞 RSS
+    crm_link.py        與 CRM 互嵌：目標價鏡射警示、警示回寫提案
     indicators.py      技術指標
     alerts.py          警示規則定義與評估
     notifier.py        LINE / Email / console

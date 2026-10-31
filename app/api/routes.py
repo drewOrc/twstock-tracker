@@ -333,6 +333,17 @@ def delete_alert(rule_id: int, db: Session = Depends(get_db)):
     return None
 
 
+@router.post("/alerts/sync-crm")
+def sync_crm_alerts(db: Session = Depends(get_db)):
+    """Mirror CRM cards' target / stop prices into alert rules right now (the frontend calls this
+    after a card is saved; the scheduler also does it every 15 minutes)."""
+    from ..services import crm_link
+
+    for code in list(crm_link._position_cache):
+        crm_link.forget_position(code)
+    return crm_link.sync_target_alerts(db)
+
+
 @router.get("/alerts/events")
 def alert_events(limit: int = 100, code: str | None = None, db: Session = Depends(get_db)):
     return [to_dict(e) for e in alerts.recent_events(db, limit, code.upper() if code else None)]

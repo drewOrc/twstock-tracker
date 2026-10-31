@@ -349,7 +349,7 @@ export function CodeAlerts({ code }: { code: string }) {
           <tbody>
             {(rules.data ?? []).map((r) => (
               <tr key={r.id}>
-                <td>{label(r.rule_type)}{r.note ? <span className="muted"> {r.note}</span> : null}</td>
+                <td>{label(r.rule_type)}{r.source ? <span className="badge" title="由 CRM 卡片的目標價 / 停損價同步，改價請回卡片改"> CRM {r.source === "crm_target" ? "目標價" : "停損價"}</span> : null}{r.note && !r.source ? <span className="muted"> {r.note}</span> : null}</td>
                 <td className="muted">{Object.entries(r.params).map(([k, v]) => `${k}=${v}`).join(", ")}</td>
                 <td>{r.enabled ? <span className="badge live">啟用</span> : <span className="badge">停用</span>}{r.one_shot ? <span className="badge"> 單次</span> : null} <span className="muted">{r.cooldown_minutes}m</span></td>
                 <td className="muted">{time(r.last_triggered_at)}</td>
