@@ -39,15 +39,21 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--port", type=int, default=8000)
     s.add_argument("--reload", action="store_true")
 
-    a = sub.add_parser("add", help="add a code to the watchlist and backfill history")
+    a = sub.add_parser("add", help="add a code to a watchlist and backfill history")
     a.add_argument("code")
     a.add_argument("--note")
+    a.add_argument("--list", dest="list_name", help="watchlist name (created if missing; default: the default list)")
     a.add_argument("--no-backfill", action="store_true")
 
-    r = sub.add_parser("remove", help="remove a code from the watchlist")
+    r = sub.add_parser("remove", help="remove a code from a watchlist (all user lists when --list omitted)")
     r.add_argument("code")
+    r.add_argument("--list", dest="list_name")
 
-    sub.add_parser("list", help="show watchlist overview")
+    ls = sub.add_parser("list", help="show watchlist overview")
+    ls.add_argument("--list", dest="list_name", help="only this watchlist")
+
+    sub.add_parser("lists", help="show all watchlists with counts")
+    sub.add_parser("sync-lists", help="rebuild the system watchlists (CRM, screener, alerts)")
     sub.add_parser("update", help="run daily prices + institutional + margin + alert evaluation")
 
     b = sub.add_parser("backfill", help="backfill daily history for a code")
@@ -80,44 +86,58 @@ def main(argv: list[str] | None = None) -> int:
 
     from app import scheduler as sched
     from app.db import init_db, session_scope
-    from app.models import WatchlistItem
     from app.services import alerts
     from app.services import market_data as md
+    from app.services import watchlists as wls
     from app.services.notifier import notifier
 
     init_db()
 
+    def resolve_list(db, name: str | None, create: bool = False):
+        if not name:
+            return None
+        for w in wls.list_watchlists(db):
+            if w["name"] == name:
+                return w["id"]
+        if create:
+            return wls.create_watchlist(db, name).id
+        print(f"no watchlist named {name!r}")
+        sys.exit(1)
+
     if args.cmd == "add":
-        code = args.code.upper()
         with session_scope() as db:
-            stock = md.ensure_stock(db, code)
-            exists = db.query(WatchlistItem).filter_by(code=code).first()
-            if exists:
-                print(f"{code} already in watchlist")
-            else:
-                db.add(WatchlistItem(code=code, note=args.note))
-                print(f"added {code} {stock.name} ({stock.market})")
-        if not args.no_backfill:
+            lid = resolve_list(db, args.list_name, create=True)
+            r = wls.add_code(db, args.code, [lid] if lid else None, args.note)
+            print(f"{'added' if r['added_to'] else 'already in list:'} {r['code']} {r['name']} ({r['market']}) lists={r['lists']}")
+        if not args.no_backfill and r["is_new"]:
             with session_scope() as db:
-                n = md.backfill_daily(db, code)
-                md.update_daily_prices(db, {code})
-                flows = md.backfill_flows(db, days=20, check_codes={code})
+                n = md.backfill_daily(db, r["code"])
+                md.update_daily_prices(db, {r["code"]})
+                flows = md.backfill_flows(db, days=20, check_codes={r["code"]})
             _dump({"daily_rows": n, **flows})
         return 0
 
     if args.cmd == "remove":
         with session_scope() as db:
-            item = db.query(WatchlistItem).filter_by(code=args.code.upper()).first()
-            if not item:
-                print("not in watchlist")
-                return 1
-            db.delete(item)
-        print("removed")
+            lid = resolve_list(db, args.list_name)
+            r = wls.remove_code(db, args.code, lid)
+        print("removed" if r["removed"] else "not in watchlist", f"remaining lists={r['lists']}", "(unsubscribed, alert rules removed)" if r["unsubscribed"] else "")
+        return 0
+
+    if args.cmd == "lists":
+        with session_scope() as db:
+            for w in wls.list_watchlists(db):
+                print(f"{w['id']:>3}  {w['name']:<10} {w['count']:>4} 檔  {'(系統: ' + w['system_key'] + ')' if w['system_key'] else ''}")
+        return 0
+
+    if args.cmd == "sync-lists":
+        with session_scope() as db:
+            _dump(wls.sync_system_lists(db))
         return 0
 
     if args.cmd == "list":
         with session_scope() as db:
-            rows = md.watchlist_overview(db)
+            rows = md.watchlist_overview(db, resolve_list(db, args.list_name))
         if not rows:
             print("watchlist is empty")
             return 0

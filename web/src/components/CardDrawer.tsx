@@ -104,7 +104,7 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
   const rel = (list: any[], key: string, nameKey: string, dir: string) =>
     list.length ? list.map((e) => (
       <div className="rel" key={e.id}>
-        <span>{e.relation === "partner" ? "夥伴" : dir} <a onClick={() => onOpen(e[key])}>{e[nameKey]}</a> <span className="kv">{e[key]}</span></span>
+        <span>{e.relation === "partner" ? "夥伴" : e.relation === "holding" ? (dir === "客戶" ? "持有它的 ETF" : "成分股") : dir} <a onClick={() => onOpen(e[key])}>{e[nameKey]}</a> <span className="kv">{e[key]}</span></span>
         <span className="kv">{pct0(e.revenue_share)} · {e.lag_days ?? "?"} 天 · 信心{L.conf[e.confidence]}</span>
       </div>
     )) : <div className="kv">無</div>;

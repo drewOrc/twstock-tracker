@@ -84,8 +84,21 @@ table.kv td:first-child { color: var(--muted); width: 40%; }
 .toast.error { border-color: var(--up); }
 
 /* ---- watchlist / detail ---- */
-.add-form { display: flex; gap: 6px; }
+.add-form { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .add-form input:first-child { width: 16em; }
+.list-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+.list-tabs button { background: transparent; color: var(--muted); border: 1px solid transparent; padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px; }
+.list-tabs button.active { color: var(--text); border-color: var(--border); background: var(--panel-2); }
+.list-tabs .cnt { color: var(--muted); font-size: 11px; }
+.list-tabs .sys { font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 2px; }
+.list-tabs .sw { margin: 0 2px 0 0; }
+.list-picker { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip.pick { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin: 0; color: var(--muted); }
+.chip.pick input { margin: 0; width: auto; }
+.chip.pick.on { color: var(--text); border-color: var(--accent); background: #22304a; }
+.list-dots { display: inline-flex; gap: 4px; align-items: center; }
+.ldot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--border); cursor: pointer; }
+.ldot.sys { cursor: default; border-radius: 2px; }
 .chart { width: 100%; height: 380px; }
 .legend { display: flex; gap: 12px; font-size: 12px; margin-top: 4px; }
 .alert-form { display: flex; flex-direction: column; gap: 8px; padding: 8px; background: var(--panel-2); border-radius: 8px; margin-bottom: 8px; }
@@ -99,7 +112,11 @@ table.kv td:first-child { color: var(--muted); width: 40%; }
 .events-list time, .runs time { color: var(--muted); font-size: 12px; margin-right: 8px; }
 .events-list .delivery { font-size: 11px; color: var(--muted); margin-left: 6px; }
 
-/* ---- jobs ---- */
+/* ---- jobs / health ---- */
+.pill-st { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; color: #fff; background: var(--none); vertical-align: middle; }
+.pill-st.ok { background: var(--ok); } .pill-st.warn { background: var(--warn); color: #000; }
+.pill-st.bad, .pill-st.missing { background: var(--bad); } .pill-st.idle { background: var(--none); }
+.health-foot { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-top: 6px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 10px; }
 .tile { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
 .tile .k { color: var(--muted); font-size: 11px; }
@@ -183,6 +200,7 @@ table.kv td:first-child { color: var(--muted); width: 40%; }
 .graph .edge.dim { stroke-opacity: .08; }
 .graph .edge.hi { stroke: var(--accent); stroke-opacity: .9; }
 .graph .edge.partner { stroke: var(--warn); stroke-opacity: .7; }
+.graph .edge.holding { stroke: var(--ok); stroke-opacity: .7; }
 .graph .layer-label { font-size: 11px; fill: var(--muted); }
 .bar { height: 6px; background: var(--accent); border-radius: 3px; opacity: .7; }
 

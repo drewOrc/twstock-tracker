@@ -16,7 +16,7 @@ export const L = {
   signal: { no_data: "無資料", on_track: "符合", ahead: "超前", behind: "落後", weakened: "被削弱" } as Record<string, string>,
   cstatus: { pending: "待確認", confirmed: "已確認", missed: "未達成" } as Record<string, string>,
   metric: { revenue_m: "月營收", revenue_q: "季營收", gross_margin: "毛利率", opex: "營業費用", eps: "EPS", shares: "股數" } as Record<string, string>,
-  relation: { customer: "客戶", partner: "夥伴" } as Record<string, string>,
+  relation: { customer: "客戶", partner: "夥伴", holding: "成分股" } as Record<string, string>,
 };
 
 export const JOB_L: Record<string, string> = {

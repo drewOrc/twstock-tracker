@@ -2,6 +2,23 @@ import { engine, useAsync } from "../api/client";
 import { useAction, useToast } from "../components/Toast";
 import { time } from "../lib/format";
 
+/** Which job feeds which table, so the health table can show when it last succeeded. */
+const TABLE_JOBS: Record<string, string[]> = {
+  daily_prices: ["daily_prices", "full_daily", "market_daily"],
+  market_stats: ["market_daily", "daily_prices", "full_daily", "market_backfill"],
+  index_daily: ["market_daily", "daily_prices", "full_daily", "market_backfill"],
+  institutional_flows: ["institutional", "full_daily", "flows_backfill"],
+  margin_balances: ["margin", "full_daily", "flows_backfill"],
+  screener_results: ["screener", "institutional", "full_daily"],
+  stocks: ["stock_list"],
+};
+function lastOkFor(lastOk: Record<string, string>, table: string): string {
+  const cands = (TABLE_JOBS[table] ?? []).map((j) => [j, lastOk[j]] as const).filter(([, t]) => t);
+  if (!cands.length) return "–";
+  cands.sort((a, b) => (a[1] < b[1] ? 1 : -1));
+  return `${cands[0][0]} · ${time(cands[0][1])}`;
+}
+
 const JOB_LABELS: Record<string, string> = {
   full_daily: "每日全部（日線 + 全市場 + 法人 + 融資券 + 警示 + 掃描）",
   daily_prices: "日線 + 全市場",
@@ -16,13 +33,17 @@ const JOB_LABELS: Record<string, string> = {
   realtime: "即時報價一次",
 };
 
+const STATUS_L: Record<string, string> = { ok: "正常", warn: "落後 1 日", bad: "過期", missing: "無資料", idle: "待機" };
+
 export default function Jobs() {
   const toast = useToast();
   const act = useAction();
   const health = useAsync(() => engine("/health"), [], 30000);
+  const data = useAsync(() => engine("/health/data"), [], 60000);
   const jobs = useAsync(() => engine("/jobs"), [], 30000);
   const runs = useAsync<any[]>(() => engine("/jobs/runs?limit=30"), [], 20000);
   const h = health.data;
+  const dh = data.data;
 
   const run = (name: string) =>
     act(async () => {
@@ -48,6 +69,45 @@ export default function Jobs() {
             <div className="tile"><div className="k">通知管道</div><div className="v">{Object.entries(h.channels).filter(([, on]) => on).map(([k]) => k).join(", ") || "無"}</div><div className="s">LINE / Email 在 .env 設定</div></div>
             <div className="tile"><div className="k">即時輪詢</div><div className="v">{jobs.data?.realtime?.quotes ?? 0} 檔</div><div className="s">{jobs.data?.realtime?.skipped ?? (jobs.data?.realtime?.last_success ? time(jobs.data.realtime.last_success) : "尚未")}{jobs.data?.realtime?.error ? ` · ${jobs.data.realtime.error}` : ""}</div></div>
           </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <h2>資料健康 {dh && <span className={`pill-st ${dh.overall}`}>{STATUS_L[dh.overall] ?? dh.overall}</span>}</h2>
+          <span className="muted small">{dh ? `檢查時間 ${time(dh.checked_at)} · 追蹤 ${dh.counts.watched_codes} 檔 · 啟用警示 ${dh.counts.alert_rules} 條 · 24h 觸發 ${dh.counts.alert_events_24h}` : "載入中…"}</span>
+          <button className="ghost tiny" onClick={() => data.reload()}>重新檢查</button>
+        </div>
+        {dh && (
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>資料表</th><th className="num">筆數</th><th>最新</th><th>應有</th><th>狀態</th><th>最近一次成功的工作</th></tr></thead>
+                <tbody>
+                  {dh.tables.map((t: any) => (
+                    <tr key={t.table}>
+                      <td>{t.label} <span className="muted">{t.table}</span></td>
+                      <td className="num">{t.rows.toLocaleString("zh-TW")}</td>
+                      <td>{t.latest ?? "–"}</td>
+                      <td className="muted">{t.expected}{t.publish_hour ? `（${t.publish_hour}:00 後）` : ""}</td>
+                      <td><span className={`pill-st ${t.status}`}>{STATUS_L[t.status] ?? t.status}</span></td>
+                      <td className="muted">{lastOkFor(dh.jobs.last_ok, t.table)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="health-foot">
+              <span>資料庫 {dh.storage.db_mb ?? "–"} MB（WAL {dh.storage.wal_mb} MB）</span>
+              <span>24 小時內工作 {dh.jobs.runs_24h} 次，失敗 {dh.jobs.failed_24h.length} 次</span>
+              {dh.storage.log && <span>日誌 {dh.storage.log}</span>}
+            </div>
+            {dh.jobs.failed_24h.length > 0 && (
+              <ul className="events-list">
+                {dh.jobs.failed_24h.map((f: any, i: number) => <li key={i}><time>{time(f.at)}</time><span className="up">{f.job}</span> {f.detail}</li>)}
+              </ul>
+            )}
+          </>
         )}
       </section>
 

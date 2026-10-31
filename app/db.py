@@ -36,6 +36,38 @@ def init_db() -> None:
     from . import models  # noqa: F401  (register tables)
 
     Base.metadata.create_all(engine)
+    _migrate_single_watchlist()
+
+
+DEFAULT_LIST_NAME = "我的追蹤"
+
+
+def _migrate_single_watchlist() -> None:
+    """v0.1 had one global `watchlist` table (code UNIQUE). Move its rows into a default list in
+    the new `watchlists` / `watchlist_items` tables, then drop the old table. Idempotent."""
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    if "watchlist" not in insp.get_table_names():
+        return
+    with engine.begin() as conn:
+        row = conn.execute(text("SELECT id FROM watchlists WHERE system_key IS NULL ORDER BY sort_order, id LIMIT 1")).first()
+        if row:
+            list_id = row[0]
+        else:
+            conn.execute(
+                text("INSERT INTO watchlists (name, color, sort_order, created_at) VALUES (:n, :c, 0, CURRENT_TIMESTAMP)"),
+                {"n": DEFAULT_LIST_NAME, "c": "#4f8cff"},
+            )
+            list_id = conn.execute(text("SELECT id FROM watchlists WHERE name = :n"), {"n": DEFAULT_LIST_NAME}).scalar()
+        conn.execute(
+            text(
+                "INSERT OR IGNORE INTO watchlist_items (watchlist_id, code, note, added_at) "
+                "SELECT :lid, code, note, COALESCE(added_at, CURRENT_TIMESTAMP) FROM watchlist"
+            ),
+            {"lid": list_id},
+        )
+        conn.execute(text("DROP TABLE watchlist"))
 
 
 def get_db():

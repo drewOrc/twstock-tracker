@@ -13,7 +13,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from .config import settings
 from .db import session_scope
 from .models import JobRun
-from .services import alerts, breadth, screener
+from .services import alerts, breadth, screener, watchlists
 from .services import market_data as md
 from .utils import is_trading_hours, now_tw
 
@@ -48,7 +48,12 @@ def job_institutional(db) -> dict:
     result = md.update_institutional(db)
     result["alerts"] = len(alerts.evaluate_daily(db))
     result["screener"] = _run_screens(db)
+    result["lists"] = watchlists.sync_system_lists(db)
     return result
+
+
+def job_sync_lists(db) -> dict:
+    return watchlists.sync_system_lists(db)
 
 
 def _run_screens(db) -> dict:
@@ -115,6 +120,7 @@ JOBS: dict[str, Callable] = {
     "market_daily": job_market_daily,
     "market_backfill": job_market_backfill,
     "screener": job_screener,
+    "sync_lists": job_sync_lists,
     "stock_list": job_stock_list,
     "alerts_daily": job_alerts_daily,
     "full_daily": job_full_daily,
@@ -192,6 +198,8 @@ def start() -> None:
         id="stock_list",
         name="refresh stock master (Sun 06:00)",
     )
+    # system watchlists (CRM 持有 / 觀察, 掃描候選, 今日警示): cheap, so keep them fresh all day
+    scheduler.add_job(run_job, IntervalTrigger(minutes=15), args=["sync_lists"], id="sync_lists", name="sync system watchlists (15 min)")
     scheduler.start()
     log.info("scheduler started (%d jobs)", len(scheduler.get_jobs()))
 
