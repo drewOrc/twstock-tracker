@@ -1,25 +1,43 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { engine, useAsync } from "../api/client";
 import { CandleChart } from "../components/Chart";
 import { useAction, useToast } from "../components/Toast";
 import { cls, int, num, pctS, signed, time } from "../lib/format";
 
 type Tab = "chart" | "ind" | "inst" | "margin" | "alerts";
+export interface WatchlistDef { id: number; name: string; color: string | null; sort_order: number; system_key: string | null; count: number }
+
+const ALL = 0; // pseudo id for "全部"
 
 export default function Watchlist() {
   const toast = useToast();
   const act = useAction();
-  const list = useAsync<any[]>(() => engine("/watchlist"), [], 15000);
+  const lists = useAsync<WatchlistDef[]>(() => engine("/watchlists"), [], 60000);
+  const [listId, setListId] = useState<number>(() => Number(localStorage.getItem("tw.watchlist") ?? ALL));
+  const current = lists.data?.find((l) => l.id === listId) ?? null;
+  const userLists = useMemo(() => (lists.data ?? []).filter((l) => !l.system_key), [lists.data]);
+  const rowsQ = useAsync<any[]>(() => engine(listId === ALL ? "/watchlist" : `/watchlist?list=${listId}`), [listId], 15000);
   const [selected, setSelected] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
+  const [targets, setTargets] = useState<number[]>([]);
   const [options, setOptions] = useState<any[]>([]);
-  const rows = list.data ?? [];
+  const rows = rowsQ.data ?? [];
+  const byId = useMemo(() => Object.fromEntries((lists.data ?? []).map((l) => [l.id, l])), [lists.data]);
 
+  useEffect(() => { try { localStorage.setItem("tw.watchlist", String(listId)); } catch { /* ignore */ } }, [listId]);
   useEffect(() => {
-    if (!selected && rows.length) setSelected(rows[0].code);
+    if (lists.data && listId !== ALL && !lists.data.some((l) => l.id === listId)) setListId(ALL);
+  }, [lists.data, listId]);
+  useEffect(() => {
+    // default target for "加入": the current user list, else the default (first) user list
+    if (!userLists.length) return;
+    setTargets(current && !current.system_key ? [current.id] : [userLists[0].id]);
+  }, [listId, userLists.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (rows.length && (!selected || !rows.some((r) => r.code === selected))) setSelected(rows[0].code);
+    if (!rows.length) setSelected(null);
   }, [rows, selected]);
-
   useEffect(() => {
     const q = code.trim();
     if (q.length < 1) return;
@@ -27,60 +45,107 @@ export default function Watchlist() {
     return () => clearTimeout(t);
   }, [code]);
 
+  const refreshAll = () => Promise.all([lists.reload(), rowsQ.reload()]);
+
   async function add(e: FormEvent) {
     e.preventDefault();
     const c = (code.trim().split(/\s+/)[0] || "").toUpperCase();
     if (!c) return;
-    const ok = await act(async () => {
-      const r = await engine("/watchlist", { method: "POST", body: { code: c, note: note || null } });
-      toast(`已加入 ${r.code} ${r.name}，正在背景補歷史資料…`);
-      setCode("");
-      setNote("");
-      await list.reload();
+    if (!targets.length) return toast("請至少選一個清單", true);
+    await act(async () => {
+      const r = await engine("/watchlist", { method: "POST", body: { code: c, note: note || null, lists: targets } });
+      const names = targets.map((id) => byId[id]?.name).filter(Boolean).join("、");
+      toast(r.is_new ? `已加入 ${r.code} ${r.name} 到 ${names}，正在背景補歷史資料…` : `已將 ${r.code} ${r.name} 加入 ${names}`);
+      setCode(""); setNote("");
+      await refreshAll();
       setSelected(r.code);
-      setTimeout(list.reload, 15000);
-      setTimeout(list.reload, 45000);
+      if (r.backfill) { setTimeout(rowsQ.reload, 15000); setTimeout(rowsQ.reload, 45000); }
     });
-    if (!ok) return;
   }
 
   async function remove(c: string) {
-    if (!confirm(`移除 ${c}？相關警示規則也會刪除。`)) return;
+    const scope = current && !current.system_key ? `從「${current.name}」移除 ${c}？` : `從所有自訂清單移除 ${c}？`;
+    if (!confirm(scope + " 若它不再屬於任何清單，相關警示規則也會刪除。")) return;
     await act(async () => {
-      await engine(`/watchlist/${c}`, { method: "DELETE" });
-      if (selected === c) setSelected(null);
-      await list.reload();
-    }, `已移除 ${c}`);
-  }
-
-  async function refreshQuotes() {
-    await act(async () => {
-      const r = await engine("/quotes/refresh", { method: "POST" });
-      toast(`已更新 ${r.quotes.length} 檔報價${r.alerts.length ? `，觸發 ${r.alerts.length} 個警示` : ""}`);
-      list.reload();
+      const r = await engine(`/watchlist/${c}${current && !current.system_key ? `?list=${current.id}` : ""}`, { method: "DELETE" });
+      toast(r.unsubscribed ? `已移除 ${c}，並停止追蹤` : `已從清單移除 ${c}`);
+      await refreshAll();
     });
   }
+
+  async function createList() {
+    const name = prompt("新清單名稱（例如 AI 供應鏈、短線觀察）");
+    if (!name?.trim()) return;
+    await act(async () => { const r = await engine("/watchlists", { method: "POST", body: { name: name.trim() } }); await lists.reload(); setListId(r.id); }, "清單已建立");
+  }
+  async function renameList() {
+    if (!current || current.system_key) return;
+    const name = prompt("清單名稱", current.name);
+    if (!name?.trim() || name.trim() === current.name) return;
+    await act(() => engine(`/watchlists/${current.id}`, { method: "PATCH", body: { name: name.trim() } }).then(lists.reload), "已改名");
+  }
+  async function deleteList() {
+    if (!current || current.system_key) return;
+    if (!confirm(`刪除清單「${current.name}」？裡面 ${current.count} 檔股票若不在其他清單，會停止追蹤並刪除警示規則。`)) return;
+    await act(async () => { await engine(`/watchlists/${current.id}`, { method: "DELETE" }); setListId(ALL); await lists.reload(); }, "清單已刪除");
+  }
+  const syncLists = () => act(async () => { await engine("/watchlists/sync", { method: "POST" }); toast("系統清單同步中（CRM、掃描候選、今日警示），約 10 秒"); setTimeout(refreshAll, 10000); });
+  const refreshQuotes = () => act(async () => {
+    const r = await engine("/quotes/refresh", { method: "POST" });
+    toast(`已更新 ${r.quotes.length} 檔報價${r.alerts.length ? `，觸發 ${r.alerts.length} 個警示` : ""}`);
+    rowsQ.reload();
+  });
+  const toggleMembership = (r: any, lid: number) =>
+    act(async () => {
+      const next = r.lists.includes(lid) ? r.lists.filter((x: number) => x !== lid) : [...r.lists, lid];
+      const userOnly = next.filter((x: number) => byId[x] && !byId[x].system_key);
+      await engine(`/watchlist/${r.code}`, { method: "PATCH", body: { lists: userOnly } });
+      await refreshAll();
+    });
 
   return (
     <>
       <section className="panel">
         <div className="panel-head">
           <h2>追蹤池</h2>
-          <form className="add-form" onSubmit={add} autoComplete="off">
-            <input list="stock-options" placeholder="代號或名稱，例如 2330" value={code} onChange={(e) => setCode(e.target.value)} required />
-            <datalist id="stock-options">
-              {options.map((s) => (
-                <option key={s.code} value={`${s.code} ${s.name}`} />
-              ))}
-            </datalist>
-            <input placeholder="備註（選填）" value={note} onChange={(e) => setNote(e.target.value)} />
-            <button type="submit">加入</button>
-          </form>
-          <button className="ghost" onClick={refreshQuotes} title="立即向證交所抓一次即時報價">
-            更新報價
-          </button>
+          <button className="ghost tiny" onClick={createList}>＋ 新清單</button>
+          {current && !current.system_key && (<><button className="ghost tiny" onClick={renameList}>改名</button><button className="ghost tiny" onClick={deleteList}>刪除清單</button></>)}
+          <button className="ghost tiny" onClick={syncLists} title="重建 CRM 持有 / 觀察、掃描候選、今日警示">同步系統清單</button>
+          <button className="ghost" onClick={refreshQuotes} title="立即向證交所抓一次即時報價">更新報價</button>
         </div>
-        {list.error && <div className="empty up">{list.error}</div>}
+
+        <div className="list-tabs">
+          <button className={listId === ALL ? "active" : ""} onClick={() => setListId(ALL)}>全部{listId === ALL && rows.length ? <span className="cnt">{rows.length}</span> : null}</button>
+          {(lists.data ?? []).map((l) => (
+            <button key={l.id} className={listId === l.id ? "active" : ""} onClick={() => setListId(l.id)} title={l.system_key ? "系統清單：自動維護" : ""}>
+              <i className="sw" style={{ background: l.color ?? "var(--none)" }} />{l.name} <span className="cnt">{l.count}</span>{l.system_key && <span className="sys">自動</span>}
+            </button>
+          ))}
+        </div>
+        {current?.system_key && (
+          <p className="hint">
+            {{ crm_hold: "Stock CRM 中 stage=持有 的台股卡片，每 15 分鐘同步。", crm_watch: "Stock CRM 中 stage=觀察 的台股卡片，每 15 分鐘同步。", screener: `最新一次均衡預設掃描的前 20 名，每次掃描後覆蓋。`, alerts_today: "過去 24 小時觸發過警示的股票。" }[current.system_key]}
+            系統清單不能手動增減，但可以把股票複製到自訂清單。
+          </p>
+        )}
+
+        <form className="add-form" onSubmit={add} autoComplete="off">
+          <input list="stock-options" placeholder="代號或名稱，例如 2330" value={code} onChange={(e) => setCode(e.target.value)} required />
+          <datalist id="stock-options">{options.map((s) => <option key={s.code} value={`${s.code} ${s.name}`} />)}</datalist>
+          <input placeholder="備註（選填）" value={note} onChange={(e) => setNote(e.target.value)} />
+          <span className="muted small">加入到</span>
+          <div className="list-picker">
+            {userLists.map((l) => (
+              <label key={l.id} className={`chip pick ${targets.includes(l.id) ? "on" : ""}`}>
+                <input type="checkbox" checked={targets.includes(l.id)} onChange={(e) => setTargets(e.target.checked ? [...targets, l.id] : targets.filter((x) => x !== l.id))} />
+                {l.name}
+              </label>
+            ))}
+          </div>
+          <button type="submit">加入</button>
+        </form>
+
+        {rowsQ.error && <div className="empty up">{rowsQ.error}</div>}
         <div className="table-wrap">
           <table>
             <thead>
@@ -89,7 +154,7 @@ export default function Watchlist() {
                 <th className="num">現價</th><th className="num">漲跌</th><th className="num">漲跌%</th><th className="num">量(張)</th>
                 <th className="num" title="外資買賣超(張)">外資</th><th className="num" title="投信買賣超(張)">投信</th><th className="num" title="自營商買賣超(張)">自營</th>
                 <th className="num" title="融資餘額(張) / 增減">融資</th><th className="num" title="融券餘額(張) / 增減">融券</th>
-                <th>更新</th><th></th>
+                <th>清單</th><th>更新</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -107,18 +172,37 @@ export default function Watchlist() {
                   <td className={`num ${cls(r.dealer_net_lots)}`}>{signed(r.dealer_net_lots)}</td>
                   <td className="num">{int(r.margin_balance)} <span className={`muted ${cls(r.margin_change)}`}>{r.margin_change == null ? "" : `(${signed(r.margin_change)})`}</span></td>
                   <td className="num">{int(r.short_balance)} <span className={`muted ${cls(r.short_change)}`}>{r.short_change == null ? "" : `(${signed(r.short_change)})`}</span></td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <ListDots lists={lists.data ?? []} member={r.lists} onToggle={(lid) => toggleMembership(r, lid)} />
+                  </td>
                   <td>{r.realtime ? <span className="badge live" title="即時">{r.quote_time}</span> : <span className="badge" title="日線收盤">{r.daily_date ?? "–"}</span>}</td>
-                  <td><button className="danger" onClick={(e) => { e.stopPropagation(); remove(r.code); }} title="移除">✕</button></td>
+                  <td>{current?.system_key ? null : <button className="danger" onClick={(e) => { e.stopPropagation(); remove(r.code); }} title="移除">✕</button>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {!list.loading && rows.length === 0 && <div className="empty">追蹤池是空的，先加入一檔股票。</div>}
+          {!rowsQ.loading && rows.length === 0 && <div className="empty">{current?.system_key ? "這個系統清單目前是空的。" : "這個清單是空的，先加入一檔股票。"}</div>}
         </div>
       </section>
 
       {selected && <Detail code={selected} name={rows.find((r) => r.code === selected)?.name} />}
     </>
+  );
+}
+
+/** Coloured dots: one per list the stock is in; click a user list's dot to toggle membership. */
+function ListDots({ lists, member, onToggle }: { lists: WatchlistDef[]; member: number[]; onToggle: (lid: number) => void }) {
+  return (
+    <span className="list-dots">
+      {lists.map((l) => {
+        const on = member.includes(l.id);
+        if (!on && l.system_key) return null;
+        return (
+          <i key={l.id} className={`ldot ${on ? "on" : ""} ${l.system_key ? "sys" : ""}`} style={{ background: on ? l.color ?? "var(--accent)" : "transparent", borderColor: l.color ?? "var(--border)" }}
+            title={`${l.name}${l.system_key ? "（系統）" : on ? "：點擊移出" : "：點擊加入"}`} onClick={() => !l.system_key && onToggle(l.id)} />
+        );
+      })}
+    </span>
   );
 }
 

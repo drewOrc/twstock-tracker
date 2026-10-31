@@ -84,8 +84,21 @@ table.kv td:first-child { color: var(--muted); width: 40%; }
 .toast.error { border-color: var(--up); }
 
 /* ---- watchlist / detail ---- */
-.add-form { display: flex; gap: 6px; }
+.add-form { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .add-form input:first-child { width: 16em; }
+.list-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+.list-tabs button { background: transparent; color: var(--muted); border: 1px solid transparent; padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px; }
+.list-tabs button.active { color: var(--text); border-color: var(--border); background: var(--panel-2); }
+.list-tabs .cnt { color: var(--muted); font-size: 11px; }
+.list-tabs .sys { font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 2px; }
+.list-tabs .sw { margin: 0 2px 0 0; }
+.list-picker { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip.pick { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin: 0; color: var(--muted); }
+.chip.pick input { margin: 0; width: auto; }
+.chip.pick.on { color: var(--text); border-color: var(--accent); background: #22304a; }
+.list-dots { display: inline-flex; gap: 4px; align-items: center; }
+.ldot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--border); cursor: pointer; }
+.ldot.sys { cursor: default; border-radius: 2px; }
 .chart { width: 100%; height: 380px; }
 .legend { display: flex; gap: 12px; font-size: 12px; margin-top: 4px; }
 .alert-form { display: flex; flex-direction: column; gap: 8px; padding: 8px; background: var(--panel-2); border-radius: 8px; margin-bottom: 8px; }

@@ -5,16 +5,25 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import scheduler as sched
 from ..config import settings
 from ..db import get_db
 from ..models import AlertRule, JobRun, WatchlistItem
-from ..schemas import AlertRuleCreate, AlertRuleUpdate, NotifyTest, WatchlistCreate, WatchlistUpdate
+from ..schemas import (
+    AlertRuleCreate,
+    AlertRuleUpdate,
+    NotifyTest,
+    WatchlistCreate,
+    WatchlistDef,
+    WatchlistPatch,
+    WatchlistUpdate,
+)
 from ..services import alerts, breadth, screener
 from ..services import market_data as md
+from ..services import watchlists as wls
 from ..services.indicators import compute_all
 from ..services.notifier import notifier
 from ..utils import is_trading_hours, now_tw
@@ -89,10 +98,57 @@ def stock_margin(code: str, limit: int = 60, days: int | None = None, db: Sessio
     return [to_dict(r) for r in md.load_margin(db, code.upper(), days or limit)]
 
 
-# ---------------------------------------------------------------------- watchlist
+# ---------------------------------------------------------------------- watchlists (多追蹤池)
+@router.get("/watchlists")
+def get_watchlists(db: Session = Depends(get_db)):
+    return wls.list_watchlists(db)
+
+
+@router.post("/watchlists", status_code=201)
+def create_watchlist(body: WatchlistDef, db: Session = Depends(get_db)):
+    try:
+        return to_dict(wls.create_watchlist(db, body.name, body.color))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.patch("/watchlists/{list_id}")
+def patch_watchlist(list_id: int, body: WatchlistPatch, db: Session = Depends(get_db)):
+    try:
+        return to_dict(wls.update_watchlist(db, list_id, body.name, body.color, body.sort_order))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/watchlists/{list_id}")
+def delete_watchlist(list_id: int, db: Session = Depends(get_db)):
+    try:
+        return {"deleted": list_id, "unsubscribed": wls.delete_watchlist(db, list_id)}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/watchlists/sync")
+def sync_watchlists(bg: BackgroundTasks):
+    """Rebuild the system lists (CRM 持有 / 觀察、掃描候選、今日警示) in the background."""
+    bg.add_task(sched.run_job, "sync_lists")
+    return {"started": "sync_lists"}
+
+
+# ---------------------------------------------------------------------- watchlist items
 @router.get("/watchlist")
-def get_watchlist(db: Session = Depends(get_db)):
-    return md.watchlist_overview(db)
+def get_watchlist(list: int | None = None, db: Session = Depends(get_db)):  # noqa: A002
+    """Overview rows; `list` narrows to one list, otherwise the union of every list."""
+    if list is not None:
+        try:
+            wls.get_list(db, list)
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return md.watchlist_overview(db, list)
 
 
 def _backfill_new(db: Session, code: str) -> dict:
@@ -108,44 +164,51 @@ def _backfill_new(db: Session, code: str) -> dict:
 
 @router.post("/watchlist", status_code=201)
 def add_watchlist(body: WatchlistCreate, bg: BackgroundTasks, db: Session = Depends(get_db)):
-    code = body.code.strip().upper()
+    """Add a code to one or more user lists (the default list when `lists` is omitted).
+    Adding a code that is already in those lists just updates the note (idempotent)."""
     try:
-        stock = md.ensure_stock(db, code)
-    except ValueError as exc:
+        r = wls.add_code(db, body.code, body.lists, body.note)
+    except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if db.execute(select(WatchlistItem).where(WatchlistItem.code == code)).scalar_one_or_none():
-        raise HTTPException(status_code=409, detail=f"{code} already in watchlist")
-    item = WatchlistItem(code=code, note=body.note, tags=body.tags)
-    db.add(item)
-    db.commit()
-    if body.backfill:
-        bg.add_task(sched.run_job, f"backfill:{code}", _backfill_new, code)
-    return {"code": code, "name": stock.name, "market": stock.market, "note": item.note, "tags": item.tags, "backfill": body.backfill}
+    except ValueError as exc:
+        status = 404 if "unknown security" in str(exc) else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+    do_backfill = body.backfill and r["is_new"]
+    if do_backfill:
+        bg.add_task(sched.run_job, f"backfill:{r['code']}", _backfill_new, r["code"])
+    return {**r, "backfill": do_backfill}
 
 
 @router.patch("/watchlist/{code}")
 def update_watchlist(code: str, body: WatchlistUpdate, db: Session = Depends(get_db)):
-    item = db.execute(select(WatchlistItem).where(WatchlistItem.code == code.upper())).scalar_one_or_none()
-    if not item:
-        raise HTTPException(status_code=404, detail="not in watchlist")
-    if body.note is not None:
-        item.note = body.note
-    if body.tags is not None:
-        item.tags = body.tags
-    db.commit()
-    return to_dict(item)
-
-
-@router.delete("/watchlist/{code}", status_code=204)
-def remove_watchlist(code: str, db: Session = Depends(get_db)):
     code = code.upper()
-    item = db.execute(select(WatchlistItem).where(WatchlistItem.code == code)).scalar_one_or_none()
-    if not item:
-        raise HTTPException(status_code=404, detail="not in watchlist")
-    db.delete(item)
-    db.execute(delete(AlertRule).where(AlertRule.code == code))
-    db.commit()
-    return None
+    if not wls.memberships(db, {code}).get(code):
+        raise HTTPException(status_code=404, detail="not in any watchlist")
+    try:
+        if body.lists is not None:
+            return wls.set_membership(db, code, body.lists, body.note)
+        if body.note is not None:
+            for item in db.execute(select(WatchlistItem).where(WatchlistItem.code == code)).scalars():
+                item.note = body.note
+            db.commit()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"code": code, "lists": wls.memberships(db, {code}).get(code, []), "note": body.note}
+
+
+@router.delete("/watchlist/{code}")
+def remove_watchlist(code: str, list: int | None = None, db: Session = Depends(get_db)):  # noqa: A002
+    """Remove from one list (`?list=`) or from every user list. Alert rules are dropped only
+    when the code is no longer in any list."""
+    try:
+        r = wls.remove_code(db, code, list)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not r["removed"]:
+        raise HTTPException(status_code=404, detail="not in that watchlist")
+    return r
 
 
 # ---------------------------------------------------------------------- realtime quotes

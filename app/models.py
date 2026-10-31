@@ -29,16 +29,33 @@ class Stock(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
-class WatchlistItem(Base):
-    __tablename__ = "watchlist"
+class Watchlist(Base):
+    """A named pool of stocks. A stock can sit in several lists; data subscription (backfill,
+    realtime polling, flows, alert evaluation) is computed over the union of all lists.
+    System lists (system_key set) are maintained automatically and cannot be edited by hand."""
+
+    __tablename__ = "watchlists"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    code: Mapped[str] = mapped_column(String(12), ForeignKey("stocks.code"), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    color: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    system_key: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class WatchlistItem(Base):
+    __tablename__ = "watchlist_items"
+    __table_args__ = (UniqueConstraint("watchlist_id", "code", name="uq_watchlist_code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    watchlist_id: Mapped[int] = mapped_column(Integer, ForeignKey("watchlists.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str] = mapped_column(String(12), ForeignKey("stocks.code"), index=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    tags: Mapped[str | None] = mapped_column(String(128), nullable=True)
     added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     stock: Mapped[Stock] = relationship(lazy="joined")
+    watchlist: Mapped[Watchlist] = relationship(lazy="joined")
 
 
 class DailyPrice(Base):
