@@ -80,6 +80,20 @@ def main(argv: list[str] | None = None) -> int:
     kf = ksub.add_parser("fetch", help="fetch official facts from TWSE/TPEx open data into the knowledge tables")
     kf.add_argument("what", choices=["monthly", "quarterly", "shares", "all"])
     ksub.add_parser("registry", help="who writes which table in the shared database")
+    ksub.add_parser("sync", help="create graph nodes for every tracked TW stock")
+    ksub.add_parser("highlights", help="write monthly-revenue highlights from the latest MOPS data")
+    ksub.add_parser("todo", help="what the knowledge layer still lacks (profiles, highlights, edges)")
+    kx = ksub.add_parser("extract", help="run the LLM extractor once (proposals only)")
+    kx.add_argument("--limit", type=int, default=None)
+    kx.add_argument("--company", default=None, help="one company id, e.g. TW:2330")
+    kps = ksub.add_parser("propose-seed", help="queue a curated JSON seed (companies, profiles, edges) as proposals for review")
+    kps.add_argument("file")
+    kpa = ksub.add_parser("approve", help="approve pending proposals as the admin (all, or --kind / --ids)")
+    kpa.add_argument("--kind", default=None)
+    kpa.add_argument("--ids", default=None, help="comma separated")
+    kh = ksub.add_parser("holdings", help="load / refresh ETF constituents as holding edges")
+    kh.add_argument("fund", help="TW:0050, TW:00981A (fetched from MoneyDJ) or any id with --file")
+    kh.add_argument("--file", default=None, help="JSON {as_of, source, fund_name, rows:[{company_id|code|name, name, weight_pct}]}")
     sub.add_parser("update", help="run daily prices + institutional + margin + alert evaluation")
 
     b = sub.add_parser("backfill", help="backfill daily history for a code")
@@ -160,6 +174,45 @@ def main(argv: list[str] | None = None) -> int:
                 _dump(kn.import_from_crm(db, src))
             elif args.kcmd == "stats":
                 _dump(kn.stats(db))
+            elif args.kcmd in ("sync", "highlights"):
+                _dump(sched.run_job("knowledge_sync" if args.kcmd == "sync" else "knowledge_highlights"))
+            elif args.kcmd == "holdings":
+                import json as _json
+                from datetime import date as _date
+
+                from app.services import etf_holdings
+                fid = args.fund.upper() if ":" in args.fund else f"TW:{args.fund.upper()}"
+                if args.file:
+                    spec = _json.loads(Path(args.file).read_text(encoding="utf-8"))
+                    _dump(etf_holdings.apply_holdings(db, fid, spec["rows"], _date.fromisoformat(spec["as_of"]), spec["source"], spec.get("fund_name"), spec.get("prune", True)))
+                else:
+                    _dump(etf_holdings.refresh_tw_funds(db, [fid]))
+            elif args.kcmd == "propose-seed":
+                import json as _json
+
+                from app.services import knowledge_proposals as kp
+                _dump(kp.propose_seed(db, _json.loads(Path(args.file).read_text(encoding="utf-8"))))
+            elif args.kcmd == "approve":
+                from app.services import auth as _auth
+                from app.services import knowledge_proposals as kp
+                admin = _auth.ensure_admin(db)
+                if args.ids:
+                    ids = [int(x) for x in args.ids.split(",") if x.strip()]
+                else:
+                    ids = [r["id"] for r in kp.list_proposals(db, "pending", args.kind, None, 10000)]
+                _dump(kp.decide_many(db, ids, True, admin))
+            elif args.kcmd == "extract":
+                from app.models import Company
+                from app.services import extractor
+                if args.company:
+                    c = db.get(Company, args.company.upper())
+                    _dump(extractor.extract_company(db, c) if c else {"error": "unknown company"})
+                else:
+                    _dump(extractor.run(db, args.limit))
+            elif args.kcmd == "todo":
+                from app.services import knowledge_jobs
+
+                _dump(knowledge_jobs.todo(db))
             elif args.kcmd == "fetch":
                 jobs = ["mops_monthly", "mops_quarterly", "mops_shares"] if args.what == "all" else [f"mops_{args.what}"]
                 for j in jobs:

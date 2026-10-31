@@ -410,3 +410,30 @@ class MetricActual(Base):
     source: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_by: Mapped[str] = mapped_column(String(64), default="user")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class KnowledgeProposal(Base):
+    """Agent / member suggestions for the shared knowledge layer. Nothing lands in knowledge_* until an
+    admin approves; approval applies the payload through services.knowledge and records applied_ref.
+    kind: company | edge | edge_weight | brief | metric | financial."""
+
+    __tablename__ = "knowledge_proposals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+    summary: Mapped[str] = mapped_column(String(256))  # one line for the review list
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence: Mapped[list | None] = mapped_column(JSON, default=list)  # [{title, url, date, quote}]
+    source: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    confidence: Mapped[str] = mapped_column(String(8), default="medium")
+    created_by: Mapped[str] = mapped_column(String(64), default="user")  # user:drew | agent:claude | system:...
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    company_ids: Mapped[list | None] = mapped_column(JSON, default=list)  # for filtering by company
+    dedupe_key: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)  # pending | approved | rejected | failed
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    decided_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)  # reviewer note / apply error
+    applied_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)

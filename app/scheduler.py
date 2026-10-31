@@ -137,7 +137,35 @@ def job_mops_shares(db) -> dict:
     return mops.run_shares(db)
 
 
+def job_knowledge_sync(db) -> dict:
+    from .services import knowledge_jobs
+
+    return knowledge_jobs.sync_companies(db)
+
+
+def job_knowledge_highlights(db) -> dict:
+    from .services import knowledge_jobs
+
+    return knowledge_jobs.revenue_highlights(db)
+
+
+def job_etf_holdings(db) -> dict:
+    from .services import etf_holdings
+
+    return etf_holdings.refresh_tw_funds(db)
+
+
+def job_knowledge_extract(db) -> dict:
+    from .services import extractor
+
+    return extractor.run(db)
+
+
 JOBS: dict[str, Callable] = {
+    "knowledge_extract": job_knowledge_extract,
+    "etf_holdings": job_etf_holdings,
+    "knowledge_sync": job_knowledge_sync,
+    "knowledge_highlights": job_knowledge_highlights,
     "mops_monthly": job_mops_monthly,
     "mops_quarterly": job_mops_quarterly,
     "mops_shares": job_mops_shares,
@@ -234,6 +262,11 @@ def start() -> None:
     scheduler.add_job(run_job, _cron(hour=19, minute=30), args=["mops_monthly"], id="mops_monthly", name="MOPS monthly revenue 19:30")
     scheduler.add_job(run_job, _cron(hour=20, minute=0), args=["mops_quarterly"], id="mops_quarterly", name="MOPS quarterly statements 20:00")
     scheduler.add_job(run_job, CronTrigger(day_of_week="mon", hour=20, minute=30, timezone=settings.timezone), args=["mops_shares"], id="mops_shares", name="MOPS shares outstanding (Mon 20:30)")
+    scheduler.add_job(run_job, IntervalTrigger(hours=6), args=["knowledge_sync"], id="knowledge_sync", name="knowledge nodes for tracked stocks (6 h)")
+    scheduler.add_job(run_job, _cron(hour=19, minute=45), args=["knowledge_highlights"], id="knowledge_highlights", name="monthly-revenue highlights 19:45")
+    scheduler.add_job(run_job, CronTrigger(day_of_week="tue", hour=7, minute=0, timezone=settings.timezone), args=["etf_holdings"], id="etf_holdings", name="ETF holdings refresh (Tue 07:00)")
+    if settings.extractor_enabled:
+        scheduler.add_job(run_job, _cron(hour=20, minute=30), args=["knowledge_extract"], id="knowledge_extract", name="LLM extractor -> proposals 20:30")
     scheduler.start()
     log.info("scheduler started (%d jobs)", len(scheduler.get_jobs()))
 

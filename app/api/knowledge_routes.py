@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import User
+from ..services import etf_holdings, knowledge_jobs, mops
 from ..services import knowledge as kn
-from ..services import mops
 from .deps import current_user, require_admin
 
 router = APIRouter(tags=["knowledge"], dependencies=[Depends(current_user)])
@@ -100,6 +100,40 @@ def _by(user: User, given: str | None) -> str:
 @router.get("/stats")
 def stats(db: Session = Depends(get_db)):
     return kn.stats(db) | {"official_data": mops.status(db)}
+
+
+@router.get("/todo")
+def todo(stale_days: int = 45, db: Session = Depends(get_db)):
+    """What still needs a human or an LLM: missing profiles, stale highlights, isolated nodes, unsourced edges."""
+    return knowledge_jobs.todo(db, stale_days)
+
+
+@router.get("/funds")
+def funds(db: Session = Depends(get_db)):
+    return etf_holdings.funds(db)
+
+
+@router.get("/funds/{fund_id}/holdings")
+def fund_holdings(fund_id: str, db: Session = Depends(get_db)):
+    return etf_holdings.holdings(db, fund_id)
+
+
+class HoldingsIn(BaseModel):
+    as_of: dt.date
+    source: str
+    fund_name: str | None = None
+    rows: list[dict]
+    prune: bool = True
+
+
+@router.post("/funds/{fund_id}/holdings")
+def put_fund_holdings(fund_id: str, body: HoldingsIn, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return _run(etf_holdings.apply_holdings, db, fund_id, body.rows, body.as_of, body.source, body.fund_name, body.prune)
+
+
+@router.post("/funds/{fund_id}/refresh")
+def refresh_fund(fund_id: str, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return etf_holdings.refresh_tw_funds(db, [fund_id.upper()])
 
 
 @router.get("/companies")
@@ -198,3 +232,61 @@ def post_metrics(body: list[MetricIn], user: User = Depends(require_admin), db: 
         data["created_by"] = _by(user, b.created_by)
         out.append(kn.metric_dict(_run(kn.upsert_metric, db, data)))
     return out
+
+
+# ---------------------------------------------------------------- proposals (review queue)
+from ..services import knowledge_proposals as kp  # noqa: E402
+
+
+class ProposalIn(BaseModel):
+    kind: str
+    payload: dict
+    summary: str | None = None
+    rationale: str | None = None
+    evidence: list[dict] | None = None
+    source: str | None = None
+    confidence: str | None = None
+    created_by: str | None = None
+
+
+class DecideIn(BaseModel):
+    approve: bool
+    note: str | None = None
+
+
+class DecideBatchIn(DecideIn):
+    ids: list[int]
+
+
+@router.get("/proposals")
+def proposals(status: str | None = "pending", kind: str | None = None, company: str | None = None, limit: int = Query(200, le=2000), db: Session = Depends(get_db)):
+    return kp.list_proposals(db, status, kind, company, limit)
+
+
+@router.get("/proposals/counts")
+def proposal_counts(db: Session = Depends(get_db)):
+    return kp.counts(db)
+
+
+@router.post("/proposals", status_code=201)
+def post_proposal(body: ProposalIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    data = body.model_dump(exclude_none=True)
+    if not user.role == "admin" and data.get("created_by", "").startswith("system:"):
+        data["created_by"] = f"user:{user.username}"
+    return kp.to_dict(_run(kp.propose, db, data, user))
+
+
+@router.post("/proposals/batch", status_code=201)
+def post_proposals(body: list[ProposalIn], user: User = Depends(current_user), db: Session = Depends(get_db)):
+    items = [b.model_dump(exclude_none=True) for b in body]
+    return [kp.to_dict(r) for r in _run(kp.propose_many, db, items, user)]
+
+
+@router.post("/proposals/decide")
+def decide_batch(body: DecideBatchIn, user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return kp.decide_many(db, body.ids, body.approve, user, body.note)
+
+
+@router.post("/proposals/{proposal_id}/decide")
+def decide_one(proposal_id: int, body: DecideIn, user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return kp.to_dict(_run(kp.decide, db, proposal_id, body.approve, user, body.note))
