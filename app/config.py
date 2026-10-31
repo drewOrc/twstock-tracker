@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     realtime_interval_seconds: int = 10
     backfill_months: int = 6
 
+    # Stock CRM backend proxied under /api/crm/* (separate process, separate repo)
+    crm_base_url: str = "http://127.0.0.1:8765"
+    crm_timeout: float = 30.0
+
     # http
     http_timeout: float = 20.0
     request_delay_seconds: float = 1.5  # TWSE throttles ~3 requests / 5 seconds
