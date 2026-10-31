@@ -26,6 +26,17 @@ class Stock(Base):
     name: Mapped[str] = mapped_column(String(64), default="")
     market: Mapped[str] = mapped_column(String(8), default="TWSE")  # TWSE | TPEX
     industry: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # company profile (from the exchanges' 公司基本資料; ETFs have none)
+    full_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    name_en: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    chairman: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    general_manager: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    founded: Mapped[str | None] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD
+    listed_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    capital: Mapped[float | None] = mapped_column(Float, nullable=True)  # 實收資本額 NTD
+    shares_issued: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    website: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(256), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 

@@ -36,10 +36,30 @@ def init_db() -> None:
     from . import models  # noqa: F401  (register tables)
 
     Base.metadata.create_all(engine)
+    _add_missing_columns()
     _migrate_single_watchlist()
 
 
 DEFAULT_LIST_NAME = "我的追蹤"
+
+
+def _add_missing_columns() -> None:
+    """create_all never alters existing tables; add columns that newer models declare (SQLite
+    supports ADD COLUMN for nullable columns, which is all we ever add)."""
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    existing_tables = set(insp.get_table_names())
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue
+            have = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in have:
+                    continue
+                coltype = col.type.compile(engine.dialect)
+                conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {coltype}'))
 
 
 def _migrate_single_watchlist() -> None:
