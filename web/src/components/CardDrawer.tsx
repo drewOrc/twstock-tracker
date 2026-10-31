@@ -1,8 +1,9 @@
 /* Stock CRM position card as a right-hand drawer, openable from any page via useCard().open(ref). */
 import { createContext, useCallback, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { crm } from "../api/client";
-import { cnum, pct0, spct, tpe } from "../lib/format";
+import { crm, engine } from "../api/client";
+import { cnum, pct0, spct, toCode, tpe } from "../lib/format";
 import { L } from "../lib/labels";
+import { StockSummary } from "./StockSummary";
 import { useAction, useToast } from "./Toast";
 
 interface CardCtx {
@@ -52,10 +53,13 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
   const [templates, setTemplates] = useState<any[]>([]);
   const [openSeries, setOpenSeries] = useState<Record<number, boolean>>({});
   const [form, setForm] = useState<any>({});
+  const [view, setView] = useState<"overview" | "thesis">("overview");
+  const [preview, setPreview] = useState<string | null>(null); // TW code with no CRM card yet
 
   const load = useCallback(async () => {
     try {
       const card = await crm(`/positions/${encodeURIComponent(String(refId))}`);
+      setPreview(null);
       // Tolerate a CRM build that predates drivers / checkpoints / metrics (stockcrm main before its PR #1).
       card.drivers ??= [];
       card.checkpoints ??= [];
@@ -72,6 +76,12 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
         target_basis: card.target_basis ?? "", model_url: card.model_url ?? "", thesis: card.thesis ?? "", invalidation: card.invalidation ?? "",
       });
     } catch (e: any) {
+      // No card yet: a TW company id can still be previewed from engine data and turned into a card.
+      const code = typeof refId === "string" ? toCode(refId) ?? (/^\d{4,6}[A-Z]?$/.test(refId) ? refId : null) : null;
+      if ((e?.status === 404 || e?.status === 400) && code) {
+        setPreview(code);
+        return;
+      }
       toast(e.message, true);
       onClose();
     }
@@ -84,9 +94,35 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
   const reload = () => { load(); onChanged(); };
   const write = (fn: () => Promise<unknown>, ok?: string) => act(async () => { await fn(); reload(); }, ok);
 
+  if (preview) {
+    const createCard = () =>
+      act(async () => {
+        const s = await engine(`/stocks/${preview}/summary?news=false`);
+        await crm("/positions", { method: "POST", body: { market: "TW", ticker: preview, name: s.profile.name, sector: s.profile.sector, stage: "watch", tier: "watch" } });
+        onChanged();
+        setPreview(null);
+        load();
+      }, "卡片已建立（觀察 / 觀察層），可以開始寫論點");
+    return (
+      <>
+        <div className="backdrop show" onClick={onClose} />
+        <aside className="drawer open">
+          <div className="drawer-inner">
+            <button className="close" onClick={onClose}>×</button>
+            <h2>{preview} <span className="ticker">TW:{preview}</span> <span className="badge">尚無卡片</span></h2>
+            <div className="kv">這是引擎的公司資料預覽。建立卡片後才能寫論點、驅動因子與檢查點。</div>
+            <div style={{ margin: "10px 0" }}><button className="primary" onClick={createCard}>＋ 為 {preview} 建立卡片</button></div>
+            <div className="summary-wrap"><StockSummary code={preview} /></div>
+          </div>
+        </aside>
+      </>
+    );
+  }
   if (!p) return <div className="backdrop show" onClick={onClose} />;
   const c = p.concentration;
   const health = p.health;
+  const twCode = toCode(p.company_id);
+  const briefs = p.briefs ?? null; // provided by newer CRM builds: {profile, highlights}
   const F = (k: string) => (e: any) => setForm({ ...form, [k]: e.target.value });
 
   const save = () =>
@@ -117,7 +153,29 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
           <button className="close" onClick={onClose}>×</button>
           <h2>{p.company.name} <span className="ticker">{p.company_id}</span> <span className={`badge ${p.tier}`}>{L.tier[p.tier]}</span></h2>
           <div className="kv">{p.company.sector || ""} · 想法來源：{p.idea_source || "未填"} · {p.days_since_update ?? "?"} 天未更新{p.tags?.length ? " · " + p.tags.join(", ") : ""}</div>
+          <div className="seg" style={{ margin: "10px 0 0" }}>
+            <button className={view === "overview" ? "on" : ""} onClick={() => setView("overview")}>概況</button>
+            <button className={view === "thesis" ? "on" : ""} onClick={() => setView("thesis")}>我的論點與證據</button>
+          </div>
 
+          {view === "overview" && (
+            <div className="summary-wrap">
+              <section>
+                <h4>AI 簡介與近期重點 <span className="kv">來自 Stock CRM company_briefs</span></h4>
+                {briefs?.profile ? (
+                  <div className="brief"><Md text={briefs.profile.content} /><div className="meta">公司簡介 · {briefs.profile.date} · {briefs.profile.created_by}</div></div>
+                ) : <div className="kv">尚無公司簡介。agent 的早晨任務會為持有 / 觀察卡片補上；也可在 CRM 直接寫入。</div>}
+                {(briefs?.highlights ?? []).map((b: any) => (
+                  <div className="brief" key={b.id}><Md text={b.content} />
+                    <div className="meta">近期重點 · {b.date} · {b.created_by}{b.sources?.length ? " · 來源：" + b.sources.map((s: any) => s.title).filter(Boolean).slice(0, 3).join("、") : ""}</div>
+                  </div>
+                ))}
+              </section>
+              {twCode ? <StockSummary code={twCode} compact /> : <section><h4>最近狀況</h4><div className="kv">{p.company_id} 不是台股，引擎沒有行情資料；基本介紹與近期重點以 CRM 的簡介為準。</div></section>}
+            </div>
+          )}
+
+          {view === "thesis" && <>
           <section>
             {health.issues.length ? (
               <div className="warn-box"><b>健康度警示</b>
@@ -307,6 +365,7 @@ function Drawer({ refId, onClose, onChanged, onOpen }: { refId: string | number;
               ))}
             </ul>
           </section>
+          </>}
         </div>
       </aside>
     </>

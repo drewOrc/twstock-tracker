@@ -65,7 +65,7 @@ export default function Graph() {
         <div className="panel-head">
           <h2>關係圖</h2>
           <span className="legend-crm"><i className="sw core" />核心 <i className="sw satellite" />衛星 <i className="sw watch" />觀察 <i className="sw blacklist" />黑名單 <i className="sw none" />無卡片</span>
-          <span className="muted small">線寬 = 客戶佔供應商營收比重；橘線 = 夥伴，綠線 = 成分股（ETF 持有權重）。點節點看卡片。</span>
+          <span className="muted small">線寬 = 客戶佔供應商營收比重；橘線 = 夥伴，綠線 = 成分股（ETF 持有權重）。點節點看卡片；台股節點沒有卡片也能看公司概況並一鍵建卡。</span>
           <button className="ghost" onClick={() => dlg.current?.showModal()}>＋ 新增關係</button>
         </div>
         {g.error && <div className="empty up">CRM 無法連線：{g.error}</div>}
@@ -90,7 +90,7 @@ export default function Graph() {
                 const p = layout.pos[n.id], r = n.stage === "hold" ? 10 + Math.sqrt(n.position_pct || 0) * 3 : 8;
                 return (
                   <g key={n.id} className="node" transform={`translate(${p.x},${p.y})`} onMouseEnter={() => setHover(n.id)} onMouseLeave={() => setHover(null)}
-                    onClick={() => (n.stage ? card.open(n.id) : toast(n.id + " 還沒有卡片，用「＋ 新卡片」建立"))}>
+                    onClick={() => (n.stage || n.id.startsWith("TW:") ? card.open(n.id) : toast(n.id + " 還沒有卡片，而且不是台股，用「＋ 新卡片」建立"))}>
                     <circle r={r} fill={n.tier ? `var(--${n.tier})` : "var(--none)"} />
                     <text x={r + 6} y={-2}>{n.name}</text>
                     <text x={r + 6} y={12} className="sub">{n.id}{n.stage === "hold" ? " · " + n.position_pct + "%" : ""}</text>

@@ -21,6 +21,22 @@ OPENAPI = "https://openapi.twse.com.tw/v1"
 WWW = "https://www.twse.com.tw"
 
 
+def _clean(v) -> str | None:
+    s = (v or "").strip()
+    return s if s and s not in ("－", "-", "—") else None
+
+
+def _iso(v) -> str | None:
+    """'19870221' -> '1987-02-21'."""
+    from ..utils import parse_date_any
+
+    try:
+        d = parse_date_any((v or "").strip())
+    except (ValueError, TypeError):
+        return None
+    return d.isoformat() if d else None
+
+
 def _sign(cell: str) -> int | None:
     """MI_INDEX encodes direction as HTML: '<p style=color:red>+</p>' / green '-' / 'X' (no reference price)."""
     s = (cell or "").strip()
@@ -78,6 +94,16 @@ class TWSEClient:
                     "name": (r.get("公司簡稱") or r.get("公司名稱") or "").strip(),
                     "market": self.market,
                     "industry": (r.get("產業別") or "").strip() or None,
+                    "full_name": _clean(r.get("公司名稱")),
+                    "name_en": _clean(r.get("英文簡稱")),
+                    "chairman": _clean(r.get("董事長")),
+                    "general_manager": _clean(r.get("總經理")),
+                    "founded": _iso(r.get("成立日期")),
+                    "listed_date": _iso(r.get("上市日期")),
+                    "capital": to_float(r.get("實收資本額")),
+                    "shares_issued": to_int(r.get("已發行普通股數或TDR原股發行股數")),
+                    "website": _clean(r.get("網址")),
+                    "address": _clean(r.get("住址")),
                 }
             )
         return out

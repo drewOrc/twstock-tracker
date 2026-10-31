@@ -112,6 +112,22 @@ table.kv td:first-child { color: var(--muted); width: 40%; }
 .events-list time, .runs time { color: var(--muted); font-size: 12px; margin-right: 8px; }
 .events-list .delivery { font-size: 11px; color: var(--muted); margin-left: 6px; }
 
+/* ---- stock summary (基本介紹 / 最近狀況) ---- */
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 13px; }
+.profile-grid .wide { grid-column: 1 / -1; }
+.profile-grid .k { color: var(--muted); font-size: 12px; margin-right: 6px; }
+.tiles.small-tiles { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin: 6px 0; }
+.small-tiles .tile .v { font-size: 16px; }
+.chips-line, .ctx-line { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; margin: 6px 0; align-items: center; }
+.news { margin: 0; padding-left: 1.2em; font-size: 13px; }
+.news li { padding: 2px 0; }
+.brief { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; margin: 6px 0; font-size: 13px; }
+.brief .meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.card .brief-line { color: var(--muted); font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .mkt-line { display: flex; gap: 10px; font-size: 12px; margin-top: 4px; }
+.summary-wrap section { margin-top: 10px; }
+.summary-wrap section h4 { margin: 0 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
 /* ---- jobs / health ---- */
 .pill-st { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; color: #fff; background: var(--none); vertical-align: middle; }
 .pill-st.ok { background: var(--ok); } .pill-st.warn { background: var(--warn); color: #000; }

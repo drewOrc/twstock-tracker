@@ -29,7 +29,7 @@ Python 後端 + Web 儀表板的台股追蹤引擎，資料來源全部是證交
 ```
 
 - 前端只面對一個網址，沒有 CORS 問題；stockcrm 不需要任何修改，各自保有 repo、資料庫、CI 與 PR 流程。
-- 分頁：引擎（追蹤池、盤面分化、選股掃描、警示、排程）與 CRM（看板、關係圖、早晨、提案），卡片抽屜可從任何頁面打開。
+- 分頁：引擎（追蹤池、盤面分化、選股掃描、警示、系統）與 CRM（看板、關係圖、早晨、提案），卡片抽屜可從任何頁面打開；抽屜分「概況」（基本介紹、AI 簡介與近期重點、最近狀況、新聞）與「我的論點與證據」兩個檢視，台股節點沒有卡片也能預覽並一鍵建卡。
 - 身份橋接在前端：CRM 的 `TW:2330` ↔ 引擎的 `2330`（`web/src/lib/format.ts`）。
 - 舊版純 HTML 儀表板仍在 <http://127.0.0.1:8000/legacy/>。
 - CRM 位址可用 `.env` 的 `CRM_BASE_URL` 改（預設 `http://127.0.0.1:8765`）；CRM 離線時 `/api/crm/*` 回 502，`/api/health` 的 `crm.reachable` 會是 false。
@@ -83,10 +83,13 @@ python cli.py notify-test
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\service_install.ps1 -WithCrm -Start   # 引擎 + Stock CRM，立刻啟動
+powershell -ExecutionPolicy Bypass -File scripts\service_restart.ps1 [-Engine|-Crm]    # 更新程式碼後重啟
+powershell -ExecutionPolicy Bypass -File scripts\service_stop.ps1 [-Engine|-Crm]       # 停止（任務 + 伺服器程序）
 powershell -ExecutionPolicy Bypass -File scripts\service_uninstall.ps1                  # 移除兩個任務並停掉程序
 ```
 
 - 任務名稱 `TWStock Engine`（8000）與 `TWStock CRM`（8765，可省略 `-WithCrm`）。CRM 只被啟動，程式碼不動。
+- 請用 `service_stop.ps1` / `service_restart.ps1` 而不是直接 `Stop-ScheduledTask`：後者只會結束監控迴圈，伺服器程序會留下來佔住 port。監控迴圈每次啟動前也會回收佔用該 port 的舊程序，所以即使只重啟任務也會在幾秒內自我修復。
 - 日誌：`data/logs/engine.log`（應用程式，5 MB × 5 輪替）、`supervisor.log`、`crm-supervisor.log`。
 - 限制：任務在你登入的互動工作階段執行，電腦必須在排程時間保持開機且未休眠（電源選項把「睡眠」設為永不，或改用 VPS）。
 - 通知只會送到 `.env` 裡設定好的管道，沒填 LINE / Email 時只有 console 與日誌。
@@ -94,6 +97,18 @@ powershell -ExecutionPolicy Bypass -File scripts\service_uninstall.ps1          
 ### 資料健康
 
 儀表板「系統」頁的「資料健康」區塊（`GET /api/health/data`）依發布時程檢查每張表：日線 / 盤面 15:00 後、三大法人 17:00 後、融資券 22:00 後、選股掃描 17:00 後應有最新交易日的資料；落後一個交易日顯示「落後 1 日」（國定假日也會這樣顯示，屬正常），落後兩日以上為「過期」。同時列出 24 小時內失敗的工作、每張表最近一次成功餵資料的工作、資料庫大小。
+
+## 個股概況：基本介紹 + 最近狀況
+
+`GET /api/stocks/{code}/summary` 把分散的資料整理成一頁，給卡片抽屜、追蹤池「概況」分頁與關係圖節點預覽用：
+
+- **profile**：證交所 / 櫃買公司基本資料（全名、英文簡稱、董事長、總經理、成立 / 上市日、實收資本額、發行股數、網址、地址、產業名稱），每週隨公司清單更新；ETF 沒有。
+- **price**：收盤與即時價、1 / 5 / 20 / 60 / 120 / 250 日漲幅並對比加權指數（`relative`）、所屬類股均值與 20 日排名、距區間高低點（資料滿 240 日才標 52 週）、MA5 / 20 / 60 / 120 與多空排列、RSI、KD、量能比。
+- **chips**：外資 / 投信 / 自營 5 日與 20 日淨買超（張）、外資連買天數、融資餘額 20 日變化。
+- **context**：最新選股掃描名次與標籤、啟用警示數、最近 5 次觸發、所屬清單。
+- **news**：Google News RSS 以公司名稱查詢的最近 10 則標題（15 分鐘快取，`?news=false` 可略過；`GET /api/stocks/{code}/news` 單獨取）。
+
+寫成文字的「公司簡介」與「近期重點」屬於 Stock CRM 的 `company_briefs`（由 agent 讀本端點與月營收後產生、走提案核准），前端在卡片的「概況」檢視同時顯示兩邊。
 
 ## 多追蹤池
 
@@ -202,6 +217,8 @@ python cli.py flows --days 60
 GET    /api/health                                  # 引擎、排程器、通知管道、CRM 連線
 GET    /api/health/data                             # 各表新鮮度、失敗工作、儲存空間
 GET    /api/stocks/search?q=台積
+GET    /api/stocks/{code}/summary?news=true         # 基本介紹 + 最近狀況（見上節）
+GET    /api/stocks/{code}/news?limit=10
 GET    /api/stocks/{code}/daily?limit=250
 GET    /api/stocks/{code}/indicators?limit=250     # series + latest
 GET    /api/stocks/{code}/institutional?days=5      # 全市場都有，單位股，最新在前（limit= 亦可）
@@ -266,6 +283,7 @@ app/
     market_data.py     抓取 + upsert + 追蹤池總覽
     watchlists.py      多追蹤池：清單 CRUD、成員關係、系統清單同步
     health.py          資料健康：各表新鮮度、失敗工作、儲存空間
+    stock_summary.py   個股概況：基本介紹、相對強弱、籌碼、脈絡、新聞 RSS
     indicators.py      技術指標
     alerts.py          警示規則定義與評估
     notifier.py        LINE / Email / console
