@@ -2,18 +2,22 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ToastProvider } from "./components/Toast";
 import { CardProvider } from "./components/CardDrawer";
 import { AuthProvider } from "./components/Auth";
-import Layout from "./components/Layout";
-import Users from "./pages/Users";
-import Knowledge from "./pages/Knowledge";
-import Watchlist from "./pages/Watchlist";
-import Market from "./pages/Market";
-import Screener from "./pages/Screener";
-import Alerts from "./pages/Alerts";
-import Jobs from "./pages/Jobs";
-import Board from "./pages/crm/Board";
-import Graph from "./pages/crm/Graph";
-import Morning from "./pages/crm/Morning";
-import Proposals from "./pages/crm/Proposals";
+import Shell from "./components/Shell";
+import { AccountView, AdminView, Home, MarketView, MeView, NotFound, StockPage, StructureView } from "./pages/views";
+
+/* Old paths keep working: each one lands on the section that replaced it (canvas board 27 §1). */
+const LEGACY_REDIRECTS: [string, string][] = [
+  ["/watchlist", "/me#lists"],
+  ["/board", "/me#cards"],
+  ["/morning", "/me#today"],
+  ["/alerts", "/me#alerts"],
+  ["/proposals", "/me#proposals"],
+  ["/screener", "/market#screener"],
+  ["/graph", "/structure#chain"],
+  ["/knowledge", "/structure#knowledge"],
+  ["/jobs", "/admin#system"],
+  ["/users", "/account"],
+];
 
 export default function App() {
   return (
@@ -21,20 +25,18 @@ export default function App() {
       <AuthProvider>
       <CardProvider>
         <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<Navigate to="/watchlist" replace />} />
-            <Route path="/watchlist" element={<Watchlist />} />
-            <Route path="/market" element={<Market />} />
-            <Route path="/screener" element={<Screener />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/jobs" element={<Jobs />} />
-            <Route path="/board" element={<Board />} />
-            <Route path="/graph" element={<Graph />} />
-            <Route path="/morning" element={<Morning />} />
-            <Route path="/proposals" element={<Proposals />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/knowledge" element={<Knowledge />} />
-            <Route path="*" element={<Navigate to="/watchlist" replace />} />
+          <Route element={<Shell />}>
+            <Route index element={<Home />} />
+            <Route path="/market" element={<MarketView />} />
+            <Route path="/me" element={<MeView />} />
+            <Route path="/structure" element={<StructureView />} />
+            <Route path="/stock/:code" element={<StockPage />} />
+            <Route path="/account" element={<AccountView />} />
+            <Route path="/admin" element={<AdminView />} />
+            {LEGACY_REDIRECTS.map(([from, to]) => (
+              <Route key={from} path={from} element={<Navigate to={to} replace />} />
+            ))}
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </CardProvider>
