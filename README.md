@@ -14,8 +14,9 @@ Python 後端 + Web 儀表板的台股追蹤引擎，資料來源全部是證交
 | 警示引擎 | 價格突破 / 跌破、漲跌幅、均線交叉、站上/跌破均線、RSI、KD 交叉、爆量、法人連續買賣超、融資變動 |
 | 通知 | Console、LINE Messaging API、Email (SMTP) |
 | 盤面分化 | 全市場上漲/下跌/漲停/跌停家數與走勢、加權指數 vs 個股中位數、前 5 大成交佔比、類股強弱（平均/中位/官方類指數/N 日累計）、漲跌幅分布、領漲領跌與成交金額排行 |
-| Web 儀表板 | 追蹤池總覽、盤面分化、K 線圖、指標、籌碼表、警示管理、排程狀態 |
-| REST API | 所有資料都有 JSON API，方便之後整合自己的前端 |
+| 選股掃描器 | 全市場 10 個因子（相對強弱、突破、量能、均線排列、外資/投信 5 日、外資連買、融資變化、分化盤逆勢、類股動能）百分位加權評分，4 種權重預設，訊號標籤，結果存檔可回測 |
+| 統一介面 | Vite + React + TypeScript 前端，同一導覽列整合引擎與 Stock CRM 兩個後端 |
+| REST API | 所有資料都有 JSON API，Stock CRM 的 MCP 也透過它取行情 |
 
 ## 統一介面：引擎 + Stock CRM
 
@@ -69,19 +70,25 @@ python cli.py list                     # 總覽
 python cli.py update                   # 日線 + 法人 + 融資券 + 警示評估
 python cli.py quote                    # 立即抓一次即時報價
 python cli.py backfill 2330 --months 12
-python cli.py flows --days 40          # 補 40 個交易日的法人 / 融資券
+python cli.py flows --days 40          # 補 40 個交易日的全市場法人 / 融資券
+python cli.py market --days 60         # 補 60 個交易日的全市場日線（盤面分化 / 掃描需要）
+python cli.py screen --preset chips    # 執行選股掃描（balanced | momentum | chips | contrarian）
 python cli.py alerts                   # 立即評估日線型警示
 python cli.py notify-test
 ```
+
+### 讓它無人值守
+
+排程器跑在伺服器程序裡，程序活著才會自動執行；電腦休眠、重開機或關掉終端機都會停。要真正無人值守，用 Windows 工作排程器設「登入時啟動 `python cli.py serve`」並勾選失敗重啟，或用 NSSM 包成服務，或部署到一台 VPS。通知只會送到 `.env` 裡設定好的管道，沒填 LINE / Email 時只有 console。
 
 ## 排程（Asia/Taipei，週一至週五）
 
 | 時間 | 工作 |
 | --- | --- |
 | 09:00–13:35 每 10 秒 | 即時報價 + 盤中警示（價格 / 漲跌幅） |
-| 15:05、17:05 | 日線更新 → 評估日線型警示 |
-| 16:40、18:40 | 三大法人 → 評估警示 |
-| 21:35、22:35 | 融資融券 → 評估警示 |
+| 15:05、17:05 | 追蹤池日線 + 全市場日線（盤面分化）→ 補最新一根 → 評估日線型警示 |
+| 16:40、18:40 | 全市場三大法人 → 評估警示 → 四個預設的選股掃描 → 推播均衡前 10 名 |
+| 21:35、22:35 | 全市場融資融券 → 評估警示 |
 | 週日 06:00 | 更新上市 / 上櫃公司清單 |
 
 每個工作跑兩次是為了容忍交易所延遲發布；寫入都是 upsert，重複執行不會產生重複資料。
@@ -161,13 +168,13 @@ GET    /api/health
 GET    /api/stocks/search?q=台積
 GET    /api/stocks/{code}/daily?limit=250
 GET    /api/stocks/{code}/indicators?limit=250     # series + latest
-GET    /api/stocks/{code}/institutional?limit=60
-GET    /api/stocks/{code}/margin?limit=60
+GET    /api/stocks/{code}/institutional?days=5      # 全市場都有，單位股，最新在前（limit= 亦可）
+GET    /api/stocks/{code}/margin?days=5             # 單位張
 GET    /api/watchlist                               # 總覽（即時價、法人、融資券合併）
 POST   /api/watchlist          {"code":"2330","note":"...","backfill":true}
 PATCH  /api/watchlist/{code}   {"note":"...","tags":"..."}
 DELETE /api/watchlist/{code}
-GET    /api/quotes                                  # 最後一次即時快照
+GET    /api/quotes?codes=2330,2382                  # 最新即時快照；不在追蹤池的代號會即時抓
 POST   /api/quotes/refresh                          # 立刻輪詢 MIS
 GET    /api/alerts/rule-types
 GET    /api/alerts?code=2330
@@ -186,12 +193,13 @@ GET    /api/screener/dates?preset=balanced
 GET    /api/screener?preset=balanced&date=&limit=30
 POST   /api/screener/run       {"preset":"chips","min_turnover":50000000,"top":30,"notify":false}
 GET    /api/jobs                                    # 排程與即時輪詢狀態
-POST   /api/jobs/{name}/run                         # daily_prices | institutional | margin | flows_backfill | market_daily | market_backfill | stock_list | alerts_daily | full_daily | realtime
+POST   /api/jobs/{name}/run                         # daily_prices | institutional | margin | flows_backfill | market_daily | market_backfill | screener | stock_list | alerts_daily | full_daily | realtime
 GET    /api/jobs/runs
 POST   /api/notify/test
+ANY    /api/crm/*                                   # 反向代理到 Stock CRM 的 /api/*（CRM 離線回 502）
 ```
 
-CORS 已開放，之後可以用 React / Vue 等另外做前端直接呼叫這些 API；`static/` 內的儀表板只是純 HTML + JS 的參考實作。
+全部無認證、只綁 127.0.0.1、回 JSON（NaN 已轉 null）。CORS 已開放，Vite 開發伺服器與其他前端可直接呼叫。
 
 ## 通知設定
 
@@ -206,25 +214,49 @@ CORS 已開放，之後可以用 React / Vue 等另外做前端直接呼叫這�
 
 ```
 app/
-  config.py            設定（.env）
+  config.py            設定（.env，含 CRM_BASE_URL）
   db.py / models.py    SQLAlchemy + SQLite（data/twstock.db）
   utils.py             民國日期、數字解析、交易時段判斷
   datasources/
-    twse.py            證交所：日線、月歷史、T86 法人、MI_MARGN 融資券、公司清單
-    tpex.py            櫃買：同上
+    twse.py            證交所：日線、月歷史、MI_INDEX 全市場、T86 法人、MI_MARGN 融資券、公司清單
+    tpex.py            櫃買：同上（afterTrading/otc 全市場）
     mis.py             證交所 MIS 即時報價
   services/
-    market_data.py     抓取 + upsert + 總覽查詢
+    market_data.py     抓取 + upsert + 追蹤池總覽
     indicators.py      技術指標
     alerts.py          警示規則定義與評估
     notifier.py        LINE / Email / console
+    breadth.py         盤面分化：家數、類股、分布、歷史
+    screener.py        選股掃描：因子、評分、標籤、預設
+    industries.py      產業別代碼對照
   scheduler.py         APScheduler 工作與排程
-  api/routes.py        REST API
-  main.py              FastAPI app
-static/                儀表板前端
+  api/
+    routes.py          REST API
+    crm_proxy.py       /api/crm/* 反向代理到 Stock CRM
+  main.py              FastAPI app：API + 代理 + 伺服 web/dist（/legacy 為舊版）
+web/                   統一前端（Vite + React + TypeScript）
+  src/pages/           追蹤池、盤面分化、選股掃描、警示、排程、crm/{看板、關係圖、早晨、提案}
+  src/components/      Layout、CardDrawer（CRM 卡片抽屜）、Chart、Toast
+  src/lib/format.ts    格式化與 TW:2330 ↔ 2330 橋接
+static/                舊版純 HTML 儀表板（/legacy/）
 cli.py                 命令列工具
-tests/                 離線單元測試（python -m pytest -q）
+tests/                 離線單元測試與 API 測試（python -m pytest -q）
+.github/workflows/     CI：ruff、pytest、API 煙霧測試、前端建置
 ```
+
+## 開發流程
+
+- 所有變更走分支 → PR → CI 綠 → 審查合併；`main` 不直接推。`.github/CODEOWNERS` 讓每個 PR 自動指定倉庫擁有者審查（GitHub 會略過 PR 作者本人）。
+- CI（`.github/workflows/ci.yml`）在每個 PR 跑：`ruff check`、`compileall`、`pytest`、FastAPI TestClient 煙霧測試（Python 3.11 / 3.12），以及 `npm ci && npm run build`（型別檢查 + Vite 建置）。
+- 本機同樣四步：
+
+```bash
+python -m ruff check app cli.py tests
+python -m pytest -q
+cd web && npm run build
+```
+
+- 與 Stock CRM 的分工：引擎 repo 負責市場資料、警示、掃描、排程、通知、統一前端與代理；stockcrm repo 負責卡片、論點、供應鏈、提案、MCP server 與其資料腳本。各寫各的資料庫，API 變更先互相告知。
 
 ## 資料來源與注意事項
 
@@ -233,11 +265,12 @@ tests/                 離線單元測試（python -m pytest -q）
 - MIS 即時報價有數秒延遲，非正式交易資料。
 - 單位：資料庫內日線成交量為「股」，法人買賣超為「股」，融資券為「張」；API 總覽與前端一律顯示「張」。
 - 日線只有未還原權息的原始價格。
+- 歷史深度：追蹤池內的股票回補 6 個月；全市場其他股票只有 `market --days N` 回補的天數（預設建議 60），MA120 等長週期指標在這些股票會是 null。
+- 證交所 OpenAPI 的全市場日線有時比個股月歷史晚一天，日線工作會自動用月歷史補最新一根。
 
-## 之後可以擴充的方向
+## 之後的計畫
 
-- 加入台股行事曆避開假日排程
-- 更多籌碼來源（借券、八大行庫、分點）
-- 回測模組：把警示規則套用在歷史資料上統計勝率
-- WebSocket 推播即時報價給前端
-- 用 React / Vue 重寫前端並加上使用者登入
+1. **統一介面 PR 2（互嵌）**：建 TW 卡片同步加入追蹤池並回補；卡片與看板顯示即時價、法人 5 日、類股強弱；目標價 / 停損價自動生成價格警示；警示觸發透過 `POST /api/crm/proposals` 寫成 CRM 提案。
+2. **統一介面 PR 3（早晨頁合併）**：CRM 的注意事項與對手方 + 昨日盤面分化 + 選股前 10 + 觸發警示，一頁看完並推播。
+3. **回測模組**：用 `screener_results` 與 `alert_events` 對照後續 5 / 10 / 20 日報酬，統計每個標籤、分數區間與警示規則的勝率與報酬分布，把「分數」變成「機率」。
+4. 台股行事曆避開假日排程；更多籌碼來源（借券、八大行庫、分點）；WebSocket 推播即時報價；伺服器服務化（Windows 服務或 VPS）。
