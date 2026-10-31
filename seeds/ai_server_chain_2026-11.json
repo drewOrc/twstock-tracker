@@ -1,0 +1,1167 @@
+{
+ "created_by": "agent:claude",
+ "note": "AI 伺服器供應鏈第二層：ODM / 品牌、美系 AI 雲與伺服器商、散熱、機殼與滑軌、電源、連接器、PCB 與其上游（CCL、銅箔、玻纖）、光通訊、邊緣運算、韓系記憶體。2026-11-01 由 agent 依年報主要客戶揭露、法說會與產業報導整理；revenue_share 為估計值（客戶佔供應商營收比重），null 表示關係成立但比重不明。以提案送入知識層。 韓系記憶體（三星、SK 海力士）因知識層尚未支援 KR 市場代號暫不收錄。",
+ "default_source": "公司年報「主要銷貨客戶」揭露、法說會與產業報導（截至 2025 年報與 2026 上半年法說），agent 整理 2026-11-01",
+ "companies": [
+  {
+   "id": "TW:2356",
+   "name": "英業達",
+   "name_en": "Inventec",
+   "sector": "電腦及週邊設備"
+  },
+  {
+   "id": "TW:3706",
+   "name": "神達",
+   "name_en": "MiTAC Holdings",
+   "sector": "電腦及週邊設備"
+  },
+  {
+   "id": "TW:2376",
+   "name": "技嘉",
+   "name_en": "Gigabyte",
+   "sector": "電腦及週邊設備"
+  },
+  {
+   "id": "TW:2377",
+   "name": "微星",
+   "name_en": "MSI",
+   "sector": "電腦及週邊設備"
+  },
+  {
+   "id": "TW:4938",
+   "name": "和碩",
+   "name_en": "Pegatron",
+   "sector": "電腦及週邊設備"
+  },
+  {
+   "id": "TW:2324",
+   "name": "仁寶",
+   "name_en": "Compal",
+   "sector": "電腦及週邊設備"
+  },
+  {
+   "id": "TW:3324",
+   "name": "雙鴻",
+   "name_en": "Auras",
+   "sector": "散熱"
+  },
+  {
+   "id": "TW:2421",
+   "name": "建準",
+   "name_en": "Sunon",
+   "sector": "散熱風扇"
+  },
+  {
+   "id": "TW:6230",
+   "name": "尼得科超眾",
+   "name_en": "Nidec Chaun-Choung",
+   "sector": "散熱"
+  },
+  {
+   "id": "TW:3013",
+   "name": "晟銘電",
+   "name_en": "Chenming Electronic",
+   "sector": "伺服器機殼"
+  },
+  {
+   "id": "TW:3693",
+   "name": "營邦",
+   "name_en": "AIC",
+   "sector": "伺服器機殼"
+  },
+  {
+   "id": "TW:6412",
+   "name": "群電",
+   "name_en": "Chicony Power",
+   "sector": "電源供應器"
+  },
+  {
+   "id": "TW:6282",
+   "name": "康舒",
+   "name_en": "AcBel",
+   "sector": "電源供應器"
+  },
+  {
+   "id": "TW:3533",
+   "name": "嘉澤",
+   "name_en": "Lotes",
+   "sector": "連接器"
+  },
+  {
+   "id": "TW:6290",
+   "name": "良維",
+   "name_en": "Longwell",
+   "sector": "電源線組"
+  },
+  {
+   "id": "TW:3044",
+   "name": "健鼎",
+   "name_en": "Tripod",
+   "sector": "PCB"
+  },
+  {
+   "id": "TW:3189",
+   "name": "景碩",
+   "name_en": "Kinsus",
+   "sector": "IC 載板"
+  },
+  {
+   "id": "TW:6213",
+   "name": "聯茂",
+   "name_en": "ITEQ",
+   "sector": "銅箔基板 CCL"
+  },
+  {
+   "id": "TW:2367",
+   "name": "燿華",
+   "name_en": "Unitech PCB",
+   "sector": "PCB"
+  },
+  {
+   "id": "TW:8358",
+   "name": "金居",
+   "name_en": "Co-Tech",
+   "sector": "電解銅箔"
+  },
+  {
+   "id": "TW:1802",
+   "name": "台玻",
+   "name_en": "Taiwan Glass",
+   "sector": "玻璃 / 玻纖布"
+  },
+  {
+   "id": "TW:1815",
+   "name": "富喬",
+   "name_en": "Fulltech Fiber Glass",
+   "sector": "玻纖紗"
+  },
+  {
+   "id": "TW:3450",
+   "name": "聯鈞",
+   "name_en": "Elite Advanced Laser",
+   "sector": "光通訊元件"
+  },
+  {
+   "id": "TW:6442",
+   "name": "光聖",
+   "name_en": "EZconn",
+   "sector": "光通訊元件"
+  },
+  {
+   "id": "TW:3363",
+   "name": "上詮",
+   "name_en": "FOCI",
+   "sector": "光纖連接 / CPO"
+  },
+  {
+   "id": "TW:4979",
+   "name": "華星光",
+   "name_en": "Luxnet",
+   "sector": "光收發模組"
+  },
+  {
+   "id": "TW:3163",
+   "name": "波若威",
+   "name_en": "Browave",
+   "sector": "光被動元件"
+  },
+  {
+   "id": "TW:4977",
+   "name": "眾達-KY",
+   "name_en": "PCL Technologies",
+   "sector": "光收發模組"
+  },
+  {
+   "id": "TW:2354",
+   "name": "鴻準",
+   "name_en": "Foxconn Technology",
+   "sector": "機構件 / 散熱"
+  },
+  {
+   "id": "TW:5243",
+   "name": "乙盛-KY",
+   "name_en": "Eson Precision",
+   "sector": "機構件"
+  },
+  {
+   "id": "TW:6166",
+   "name": "凌華",
+   "name_en": "ADLINK",
+   "sector": "邊緣運算 / 工業電腦"
+  },
+  {
+   "id": "US:SMCI",
+   "name": "美超微",
+   "name_en": "Super Micro Computer",
+   "sector": "伺服器"
+  },
+  {
+   "id": "US:ORCL",
+   "name": "甲骨文",
+   "name_en": "Oracle",
+   "sector": "軟體 / 雲端"
+  },
+  {
+   "id": "US:CRWV",
+   "name": "CoreWeave",
+   "name_en": "CoreWeave",
+   "sector": "AI 雲端"
+  },
+  {
+   "id": "US:HPE",
+   "name": "慧與",
+   "name_en": "Hewlett Packard Enterprise",
+   "sector": "伺服器 / 網通"
+  },
+  {
+   "id": "US:HPQ",
+   "name": "惠普",
+   "name_en": "HP Inc.",
+   "sector": "PC / 印表機"
+  },
+  {
+   "id": "US:MRVL",
+   "name": "邁威爾",
+   "name_en": "Marvell",
+   "sector": "半導體 / 客製 ASIC"
+  }
+ ],
+ "profiles": [
+  {
+   "company_id": "TW:2356",
+   "content": "筆電與伺服器 ODM。筆電以惠普為主要客戶；伺服器以 L6 主機板與整機為主，微軟 Azure 是長年主要雲端客戶，2025 年起承接 GB200 機櫃相關組裝。"
+  },
+  {
+   "company_id": "TW:3706",
+   "content": "神達控股，旗下神雲科技做伺服器 ODM 與自有品牌 TYAN，2024 年併入英特爾資料中心解決方案事業後客戶擴及美系雲端與企業；另有車用電子與 Mio 品牌。"
+  },
+  {
+   "company_id": "TW:2376",
+   "content": "主機板與顯示卡品牌大廠，近年 AI 伺服器占比快速拉高（GPU 伺服器與 GB200 機櫃），向輝達、超微採購 GPU / CPU，客戶包含雲端服務商與企業。"
+  },
+  {
+   "company_id": "TW:2377",
+   "content": "主機板、顯示卡與電競筆電品牌，顯示卡採購輝達與超微 GPU；2024 年起切入 AI 伺服器與車用充電樁。"
+  },
+  {
+   "company_id": "TW:4938",
+   "content": "電子代工大廠，蘋果 iPhone 第二大組裝廠，蘋果營收占比約五至六成；另有微軟 Surface、特斯拉車用電子與伺服器業務。"
+  },
+  {
+   "company_id": "TW:2324",
+   "content": "全球第二大筆電 ODM，主要客戶為戴爾、惠普、聯想與宏碁；近年發展伺服器與車用電子分散風險。"
+  },
+  {
+   "company_id": "TW:3324",
+   "content": "散熱模組廠，筆電與顯示卡散熱起家，AI 伺服器 3D VC、液冷水冷板出貨給廣達、鴻海等 ODM，供輝達 GB200 / GB300 機櫃使用。"
+  },
+  {
+   "company_id": "TW:2421",
+   "content": "散熱風扇大廠，產品用於筆電、伺服器與工業設備；AI 伺服器風扇需求帶動資料中心占比提升。"
+  },
+  {
+   "company_id": "TW:6230",
+   "content": "日商尼得科旗下散熱模組廠（原超眾），筆電與伺服器散熱模組、均熱板，客戶以筆電品牌與伺服器 ODM 為主。"
+  },
+  {
+   "company_id": "TW:3013",
+   "content": "伺服器與工業機殼廠，主要客戶為美超微，另供應雲端服務商的白牌伺服器機殼。"
+  },
+  {
+   "company_id": "TW:3693",
+   "content": "伺服器機殼與儲存系統機構件廠，美超微為最大客戶，亦直接供應雲端與企業客戶。"
+  },
+  {
+   "company_id": "TW:6412",
+   "content": "群光集團旗下電源供應器廠，筆電變壓器、伺服器與網通電源，客戶包含筆電品牌與伺服器 ODM。"
+  },
+  {
+   "company_id": "TW:6282",
+   "content": "電源供應器廠，伺服器與資料中心電源為成長主力，客戶包含伺服器 ODM 與美系雲端業者。"
+  },
+  {
+   "company_id": "TW:3533",
+   "content": "連接器廠，CPU 插座（socket）為核心產品，隨英特爾、超微平台更迭出貨給主機板與伺服器 ODM；AI 伺服器高速連接器與散熱扣具為新動能。"
+  },
+  {
+   "company_id": "TW:6290",
+   "content": "電源線組與連接線廠，客戶為電源供應器與系統組裝廠；伺服器電源線需求隨資料中心成長。"
+  },
+  {
+   "company_id": "TW:3044",
+   "content": "台灣第二大 PCB 廠，伺服器、網通與車用板為主，客戶包含伺服器 ODM 與網通設備商；上游採購台光電、聯茂的銅箔基板。"
+  },
+  {
+   "company_id": "TW:3189",
+   "content": "華碩集團旗下 IC 載板廠，BT 與 ABF 載板，聯發科為主要客戶；AI 相關 ABF 載板比重逐步提升。"
+  },
+  {
+   "company_id": "TW:6213",
+   "content": "銅箔基板（CCL）廠，台光電之外的高速材料第二供應商，客戶為金像電、健鼎等 PCB 廠，產品用於伺服器、網通與車用。"
+  },
+  {
+   "company_id": "TW:2367",
+   "content": "PCB 廠，HDI 與高層板為主，近年切入伺服器與 AI 加速卡用高階板。"
+  },
+  {
+   "company_id": "TW:8358",
+   "content": "電解銅箔廠，供應銅箔基板廠（台光電、聯茂、台燿）；高階 HVLP 銅箔用於 AI 伺服器高速板。"
+  },
+  {
+   "company_id": "TW:1802",
+   "content": "台灣玻璃，平板玻璃與玻纖布大廠，玻纖布是銅箔基板的核心材料，低介電（Low-Dk）玻纖布供應台光電等 CCL 廠。"
+  },
+  {
+   "company_id": "TW:1815",
+   "content": "玻纖紗廠，低介電玻纖紗用於高速銅箔基板，客戶為玻纖布與 CCL 廠。"
+  },
+  {
+   "company_id": "TW:3450",
+   "content": "光通訊元件廠，光收發模組與雷射元件，AI 資料中心 400G / 800G 需求帶動；客戶為光模組廠與美系雲端供應鏈。"
+  },
+  {
+   "company_id": "TW:6442",
+   "content": "光通訊被動元件與光纖連接器廠，2025 年起因 AI 資料中心光纖連接需求營收跳升，客戶以美系雲端與 AI 伺服器供應鏈為主。"
+  },
+  {
+   "company_id": "TW:3363",
+   "content": "光纖陣列（FAU）與矽光子封裝廠，共同封裝光學（CPO）關鍵供應商，與台積電 COUPE 平台合作，終端為輝達等交換器與 GPU 用途。"
+  },
+  {
+   "company_id": "TW:4979",
+   "content": "光收發模組與雷射元件廠，資料中心 400G / 800G 光模組與矽光子元件。"
+  },
+  {
+   "company_id": "TW:3163",
+   "content": "光被動元件廠，光開關與光纖連接產品，客戶為電信與資料中心設備商。"
+  },
+  {
+   "company_id": "TW:4977",
+   "content": "光收發模組廠，資料中心與電信用 100G–800G 光模組，客戶以美系雲端與設備商為主。"
+  },
+  {
+   "company_id": "TW:2354",
+   "content": "鴻海集團旗下機構件與散熱廠，蘋果 Mac 與遊戲機機殼、AI 伺服器散熱與機構件；蘋果為最大客戶。"
+  },
+  {
+   "company_id": "TW:5243",
+   "content": "鴻海集團旗下機構件廠，特斯拉車用機構件與伺服器機殼、滑軌；特斯拉為主要客戶之一。"
+  },
+  {
+   "company_id": "TW:6166",
+   "content": "工業電腦與邊緣運算廠，輝達 Jetson 邊緣 AI 合作夥伴，產品用於機器人、醫療與測試量測。"
+  },
+  {
+   "company_id": "US:SMCI",
+   "content": "美國伺服器品牌，模組化 GPU 伺服器與液冷機櫃，輝達 GPU 的主要系統客戶之一；大量採購台灣機殼、滑軌、散熱與電源。"
+  },
+  {
+   "company_id": "US:ORCL",
+   "content": "資料庫與企業軟體大廠，Oracle Cloud 近年大舉投資 AI 算力（含 OpenAI Stargate 專案），採購輝達、超微 GPU 與台灣 ODM 伺服器。"
+  },
+  {
+   "company_id": "US:CRWV",
+   "content": "AI 專用雲端業者，2025 年上市，GPU 叢集以輝達為主，伺服器採購自戴爾與美超微，主要客戶為微軟與 OpenAI。"
+  },
+  {
+   "company_id": "US:HPE",
+   "content": "企業伺服器、儲存與網通（Juniper）大廠，伺服器由台灣 ODM 代工，AI 超級電腦（Cray）採用輝達與超微晶片。"
+  },
+  {
+   "company_id": "US:HPQ",
+   "content": "全球第二大 PC 品牌與印表機大廠，筆電交由廣達、仁寶、英業達、緯創代工。"
+  },
+  {
+   "company_id": "US:MRVL",
+   "content": "資料中心半導體廠，客製 ASIC（為亞馬遜、微軟設計 AI 加速器）、光通訊 DSP 與乙太網路晶片，晶圓委由台積電生產。"
+  }
+ ],
+ "edges": [
+  {
+   "customer_id": "US:MSFT",
+   "supplier_id": "TW:2356",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "英業達法說：伺服器以單一美系雲端客戶為主，市場認定為微軟",
+   "notes": "Azure 伺服器 L6 / L10"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:2356",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：英業達 2025 年取得 GB200 運算板組裝訂單",
+   "notes": "GB200 運算板"
+  },
+  {
+   "customer_id": "US:HPQ",
+   "supplier_id": "TW:2356",
+   "revenue_share": 0.3,
+   "confidence": "medium",
+   "source": "英業達年報：筆電主要客戶惠普；估計值",
+   "notes": "筆電 ODM"
+  },
+  {
+   "customer_id": "US:DELL",
+   "supplier_id": "TW:2356",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：英業達伺服器客戶包含戴爾",
+   "notes": "伺服器 L6"
+  },
+  {
+   "customer_id": "US:HPE",
+   "supplier_id": "TW:2356",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：慧與伺服器代工廠之一",
+   "notes": "伺服器"
+  },
+  {
+   "customer_id": "US:AMZN",
+   "supplier_id": "TW:3706",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：神雲承接美系雲端白牌伺服器；推測",
+   "notes": "伺服器"
+  },
+  {
+   "customer_id": "TW:3706",
+   "supplier_id": "US:NVDA",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "神達為輝達 MGX / HGX 伺服器合作夥伴，採購 GPU",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "TW:3706",
+   "supplier_id": "US:INTC",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "神達 2024 年承接英特爾資料中心解決方案事業，採購 Xeon",
+   "notes": "CPU 採購"
+  },
+  {
+   "customer_id": "TW:2376",
+   "supplier_id": "US:NVDA",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "技嘉為輝達顯示卡 AIC 夥伴與 GB200 伺服器系統商",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "TW:2376",
+   "supplier_id": "US:AMD",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "技嘉主機板與 MI300 伺服器採用超微晶片",
+   "notes": "CPU / GPU 採購"
+  },
+  {
+   "customer_id": "TW:2376",
+   "supplier_id": "US:INTC",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "主機板與伺服器採用英特爾 CPU",
+   "notes": "CPU 採購"
+  },
+  {
+   "customer_id": "TW:2377",
+   "supplier_id": "US:NVDA",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "微星為輝達顯示卡 AIC 夥伴",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "TW:2377",
+   "supplier_id": "US:AMD",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "微星顯示卡與主機板採用超微晶片",
+   "notes": "GPU / CPU 採購"
+  },
+  {
+   "customer_id": "TW:2357",
+   "supplier_id": "US:NVDA",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "華碩為輝達顯示卡 AIC 夥伴與 AI 伺服器系統商",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "US:AAPL",
+   "supplier_id": "TW:4938",
+   "revenue_share": 0.55,
+   "confidence": "high",
+   "source": "和碩年報：最大客戶占營收逾五成（蘋果）；估計值",
+   "notes": "iPhone 組裝"
+  },
+  {
+   "customer_id": "US:MSFT",
+   "supplier_id": "TW:4938",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：和碩代工 Surface 與伺服器",
+   "notes": "Surface / 伺服器"
+  },
+  {
+   "customer_id": "US:TSLA",
+   "supplier_id": "TW:4938",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：和碩供應特斯拉車用電子",
+   "notes": "車用電子"
+  },
+  {
+   "customer_id": "US:DELL",
+   "supplier_id": "TW:2324",
+   "revenue_share": 0.25,
+   "confidence": "medium",
+   "source": "仁寶年報：戴爾為前兩大客戶；估計值",
+   "notes": "筆電 ODM"
+  },
+  {
+   "customer_id": "US:HPQ",
+   "supplier_id": "TW:2324",
+   "revenue_share": 0.2,
+   "confidence": "medium",
+   "source": "仁寶年報：惠普為主要客戶；估計值",
+   "notes": "筆電 ODM"
+  },
+  {
+   "customer_id": "US:HPQ",
+   "supplier_id": "TW:2382",
+   "revenue_share": 0.1,
+   "confidence": "medium",
+   "source": "廣達年報：惠普為筆電主要客戶；估計值",
+   "notes": "筆電 ODM"
+  },
+  {
+   "customer_id": "US:HPQ",
+   "supplier_id": "TW:3231",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "緯創筆電客戶包含惠普",
+   "notes": "筆電 ODM"
+  },
+  {
+   "customer_id": "US:HPE",
+   "supplier_id": "TW:3231",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "緯創為慧與伺服器主要代工廠",
+   "notes": "伺服器"
+  },
+  {
+   "customer_id": "US:HPE",
+   "supplier_id": "TW:2317",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "鴻海為慧與伺服器代工廠",
+   "notes": "伺服器"
+  },
+  {
+   "customer_id": "US:HPE",
+   "supplier_id": "US:NVDA",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "慧與 AI 伺服器採用輝達 GPU",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "US:NVDA",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "美超微為輝達 GPU 主要系統客戶之一",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "US:AMD",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "美超微 MI300 系列伺服器",
+   "notes": "GPU / CPU 採購"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "TW:8210",
+   "revenue_share": 0.25,
+   "confidence": "medium",
+   "source": "勤誠年報：最大客戶美超微；估計值",
+   "notes": "伺服器機殼"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "TW:3693",
+   "revenue_share": 0.3,
+   "confidence": "medium",
+   "source": "營邦年報：美超微為最大客戶；估計值",
+   "notes": "伺服器機殼"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "TW:3013",
+   "revenue_share": 0.4,
+   "confidence": "medium",
+   "source": "晟銘電年報：美超微占營收約四成；估計值",
+   "notes": "伺服器機殼"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "TW:2059",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "川湖伺服器滑軌客戶包含美超微",
+   "notes": "滑軌"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "TW:3324",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：雙鴻液冷供應美超微",
+   "notes": "液冷"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "TW:3017",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：奇鋐散熱供應美超微",
+   "notes": "散熱"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "TW:2308",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "台達電伺服器電源客戶包含美超微",
+   "notes": "電源"
+  },
+  {
+   "customer_id": "US:SMCI",
+   "supplier_id": "TW:2301",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "光寶科伺服器電源客戶包含美超微",
+   "notes": "電源"
+  },
+  {
+   "customer_id": "US:CRWV",
+   "supplier_id": "US:NVDA",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "CoreWeave 公開說明書：GPU 叢集以輝達為主，輝達亦為股東",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "US:CRWV",
+   "supplier_id": "US:DELL",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "CoreWeave 公開說明書：伺服器主要採購自戴爾",
+   "notes": "伺服器"
+  },
+  {
+   "customer_id": "US:CRWV",
+   "supplier_id": "US:SMCI",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "CoreWeave 公開說明書：伺服器採購自美超微",
+   "notes": "伺服器"
+  },
+  {
+   "customer_id": "US:MSFT",
+   "supplier_id": "US:CRWV",
+   "revenue_share": 0.6,
+   "confidence": "high",
+   "source": "CoreWeave 2024 年報：微軟占營收約六成",
+   "notes": "AI 算力租賃"
+  },
+  {
+   "customer_id": "US:ORCL",
+   "supplier_id": "US:NVDA",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "Oracle Cloud 大舉採購輝達 GPU（含 Stargate 專案）",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "US:ORCL",
+   "supplier_id": "US:AMD",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "甲骨文 2025 年宣布部署數萬顆 MI355X / MI450",
+   "notes": "GPU 採購"
+  },
+  {
+   "customer_id": "US:ORCL",
+   "supplier_id": "TW:2382",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：廣達供應 Oracle Cloud 伺服器",
+   "notes": "伺服器"
+  },
+  {
+   "customer_id": "US:ORCL",
+   "supplier_id": "TW:2317",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：鴻海供應 Stargate 相關機櫃",
+   "notes": "伺服器機櫃"
+  },
+  {
+   "customer_id": "US:AMZN",
+   "supplier_id": "US:MRVL",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "邁威爾為亞馬遜 Trainium 系列客製 ASIC 主要合作夥伴",
+   "notes": "客製 AI 晶片"
+  },
+  {
+   "customer_id": "US:MSFT",
+   "supplier_id": "US:MRVL",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：邁威爾參與微軟 Maia 系列設計",
+   "notes": "客製 AI 晶片"
+  },
+  {
+   "customer_id": "US:MRVL",
+   "supplier_id": "TW:2330",
+   "revenue_share": null,
+   "confidence": "high",
+   "source": "邁威爾晶片採台積電先進製程",
+   "notes": "晶圓代工"
+  },
+  {
+   "customer_id": "US:MRVL",
+   "supplier_id": "TW:3711",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "邁威爾封測委外日月光",
+   "notes": "封測"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:3324",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "雙鴻 GB200 水冷板經 ODM 供應輝達機櫃",
+   "notes": "液冷水冷板"
+  },
+  {
+   "customer_id": "TW:2382",
+   "supplier_id": "TW:3324",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "雙鴻主要 ODM 客戶包含廣達",
+   "notes": "伺服器散熱"
+  },
+  {
+   "customer_id": "TW:2317",
+   "supplier_id": "TW:3324",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "雙鴻主要 ODM 客戶包含鴻海",
+   "notes": "伺服器散熱"
+  },
+  {
+   "customer_id": "TW:2382",
+   "supplier_id": "TW:2421",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "建準伺服器風扇供應 ODM",
+   "notes": "風扇"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:2421",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：建準風扇用於輝達 AI 伺服器",
+   "notes": "風扇"
+  },
+  {
+   "customer_id": "TW:2382",
+   "supplier_id": "TW:6230",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "尼得科超眾伺服器散熱客戶包含廣達",
+   "notes": "散熱模組"
+  },
+  {
+   "customer_id": "US:HPQ",
+   "supplier_id": "TW:6230",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "筆電散熱模組客戶包含惠普",
+   "notes": "筆電散熱"
+  },
+  {
+   "customer_id": "US:AAPL",
+   "supplier_id": "TW:2354",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "鴻準年報：最大客戶為蘋果（Mac 機殼）",
+   "notes": "機殼 / 散熱"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:2354",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：鴻準供應 GB200 機櫃散熱與機構件",
+   "notes": "伺服器機構件"
+  },
+  {
+   "customer_id": "US:TSLA",
+   "supplier_id": "TW:5243",
+   "revenue_share": 0.3,
+   "confidence": "medium",
+   "source": "乙盛-KY 年報：特斯拉為主要客戶；估計值",
+   "notes": "車用機構件"
+  },
+  {
+   "customer_id": "TW:2317",
+   "supplier_id": "TW:5243",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "乙盛-KY 為鴻海集團公司，供應伺服器機構件",
+   "notes": "伺服器機殼 / 滑軌"
+  },
+  {
+   "customer_id": "TW:6669",
+   "supplier_id": "TW:2059",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "川湖伺服器滑軌客戶包含緯穎",
+   "notes": "滑軌"
+  },
+  {
+   "customer_id": "US:DELL",
+   "supplier_id": "TW:2059",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "川湖滑軌客戶包含戴爾",
+   "notes": "滑軌"
+  },
+  {
+   "customer_id": "TW:6669",
+   "supplier_id": "TW:3693",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：營邦供應緯穎機殼",
+   "notes": "伺服器機殼"
+  },
+  {
+   "customer_id": "TW:2382",
+   "supplier_id": "TW:6412",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "群電伺服器電源客戶包含廣達",
+   "notes": "電源"
+  },
+  {
+   "customer_id": "TW:6669",
+   "supplier_id": "TW:6282",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "康舒伺服器電源客戶包含緯穎",
+   "notes": "電源"
+  },
+  {
+   "customer_id": "US:HPQ",
+   "supplier_id": "TW:6412",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "群電筆電變壓器客戶包含惠普",
+   "notes": "變壓器"
+  },
+  {
+   "customer_id": "TW:2382",
+   "supplier_id": "TW:3533",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "嘉澤 CPU 插座供應伺服器 ODM，廣達為主要客戶",
+   "notes": "CPU socket"
+  },
+  {
+   "customer_id": "TW:2317",
+   "supplier_id": "TW:3533",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "嘉澤 CPU 插座供應鴻海",
+   "notes": "CPU socket"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:3533",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：嘉澤供應 GB200 連接器與散熱扣具",
+   "notes": "連接器"
+  },
+  {
+   "customer_id": "TW:2308",
+   "supplier_id": "TW:6290",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "良維電源線客戶包含台達電",
+   "notes": "電源線"
+  },
+  {
+   "customer_id": "TW:2382",
+   "supplier_id": "TW:3044",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "健鼎伺服器板主要客戶包含廣達",
+   "notes": "伺服器 PCB"
+  },
+  {
+   "customer_id": "TW:2317",
+   "supplier_id": "TW:3044",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "健鼎伺服器板客戶包含鴻海",
+   "notes": "伺服器 PCB"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:3044",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：健鼎切入輝達 GB200 相關板",
+   "notes": "伺服器 PCB"
+  },
+  {
+   "customer_id": "TW:3044",
+   "supplier_id": "TW:2383",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "健鼎採購台光電高速銅箔基板",
+   "notes": "CCL"
+  },
+  {
+   "customer_id": "TW:3044",
+   "supplier_id": "TW:6213",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "健鼎採購聯茂銅箔基板",
+   "notes": "CCL"
+  },
+  {
+   "customer_id": "TW:2368",
+   "supplier_id": "TW:6213",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "金像電採購聯茂銅箔基板",
+   "notes": "CCL"
+  },
+  {
+   "customer_id": "TW:6669",
+   "supplier_id": "TW:2367",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：燿華供應緯穎伺服器板",
+   "notes": "伺服器 PCB"
+  },
+  {
+   "customer_id": "TW:2383",
+   "supplier_id": "TW:8358",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "金居銅箔主要客戶包含台光電",
+   "notes": "HVLP 銅箔"
+  },
+  {
+   "customer_id": "TW:6213",
+   "supplier_id": "TW:8358",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "金居銅箔客戶包含聯茂",
+   "notes": "銅箔"
+  },
+  {
+   "customer_id": "TW:6274",
+   "supplier_id": "TW:8358",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "金居銅箔客戶包含台燿",
+   "notes": "銅箔"
+  },
+  {
+   "customer_id": "TW:2383",
+   "supplier_id": "TW:1802",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "台光電採購台玻低介電玻纖布",
+   "notes": "玻纖布"
+  },
+  {
+   "customer_id": "TW:2383",
+   "supplier_id": "TW:1815",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "富喬低介電玻纖紗用於高速 CCL",
+   "notes": "玻纖紗"
+  },
+  {
+   "customer_id": "TW:6274",
+   "supplier_id": "TW:1802",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "台燿採購台玻玻纖布",
+   "notes": "玻纖布"
+  },
+  {
+   "customer_id": "TW:6213",
+   "supplier_id": "TW:1802",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "聯茂採購台玻玻纖布",
+   "notes": "玻纖布"
+  },
+  {
+   "customer_id": "TW:2454",
+   "supplier_id": "TW:3189",
+   "revenue_share": 0.3,
+   "confidence": "medium",
+   "source": "景碩年報：聯發科為最大客戶；估計值",
+   "notes": "BT 載板"
+  },
+  {
+   "customer_id": "US:QCOM",
+   "supplier_id": "TW:3189",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "景碩載板客戶包含高通",
+   "notes": "載板"
+  },
+  {
+   "customer_id": "US:AMD",
+   "supplier_id": "TW:3189",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "景碩 ABF 載板客戶包含超微",
+   "notes": "ABF 載板"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:3363",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "產業報導：上詮為輝達 CPO 交換器光纖陣列供應商",
+   "notes": "CPO / FAU"
+  },
+  {
+   "customer_id": "TW:2330",
+   "supplier_id": "TW:3363",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "上詮參與台積電 COUPE 矽光子封裝平台",
+   "notes": "矽光子"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:3450",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：聯鈞光元件進入輝達供應鏈",
+   "notes": "光元件"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:6442",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：光聖光纖連接產品用於輝達 AI 機櫃",
+   "notes": "光纖連接"
+  },
+  {
+   "customer_id": "US:AMZN",
+   "supplier_id": "TW:6442",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：光聖供應美系雲端資料中心",
+   "notes": "光纖連接"
+  },
+  {
+   "customer_id": "US:NVDA",
+   "supplier_id": "TW:4979",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：華星光光模組切入輝達供應鏈",
+   "notes": "光模組"
+  },
+  {
+   "customer_id": "US:GOOGL",
+   "supplier_id": "TW:3163",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：波若威光開關供應 Google 資料中心；推測",
+   "notes": "光開關"
+  },
+  {
+   "customer_id": "US:AMZN",
+   "supplier_id": "TW:4977",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：眾達-KY 光模組客戶包含美系雲端",
+   "notes": "光模組"
+  },
+  {
+   "customer_id": "US:META",
+   "supplier_id": "TW:4977",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：眾達-KY 光模組客戶包含 Meta；推測",
+   "notes": "光模組"
+  },
+  {
+   "customer_id": "TW:6166",
+   "supplier_id": "US:NVDA",
+   "relation": "partner",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "凌華為輝達 Jetson 邊緣 AI 合作夥伴",
+   "notes": "邊緣 AI"
+  },
+  {
+   "customer_id": "TW:2395",
+   "supplier_id": "US:NVDA",
+   "relation": "partner",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "研華為輝達 Jetson / IGX 邊緣 AI 合作夥伴",
+   "notes": "邊緣 AI"
+  },
+  {
+   "customer_id": "TW:2395",
+   "supplier_id": "US:INTC",
+   "revenue_share": null,
+   "confidence": "medium",
+   "source": "研華工業電腦以英特爾 CPU 為主",
+   "notes": "CPU 採購"
+  },
+  {
+   "customer_id": "US:AMZN",
+   "supplier_id": "TW:3665",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：貿聯-KY 資料中心線束客戶包含美系雲端",
+   "notes": "線束"
+  },
+  {
+   "customer_id": "TW:2317",
+   "supplier_id": "TW:4526",
+   "revenue_share": null,
+   "confidence": "low",
+   "source": "產業報導：東台工具機客戶包含鴻海；推測",
+   "notes": "工具機"
+  }
+ ]
+}
