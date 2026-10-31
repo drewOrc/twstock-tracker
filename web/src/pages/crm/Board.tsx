@@ -1,13 +1,17 @@
 import { useEffect, useRef, type FormEvent } from "react";
-import { crm, useAsync } from "../../api/client";
+import { crm, engine, useAsync } from "../../api/client";
 import { useCard } from "../../components/CardDrawer";
 import { useAction } from "../../components/Toast";
+import { cls, num, pctS, signed, toCode } from "../../lib/format";
 import { L } from "../../lib/labels";
 
 export default function Board() {
   const card = useCard();
   const act = useAction();
   const list = useAsync<any[]>(() => crm("/positions"), [card.version]);
+  // engine snapshot for TW cards (price / today % / foreign flow); CRM 持有/觀察 lists keep these codes subscribed
+  const mkt = useAsync<any[]>(() => engine("/watchlist").catch(() => []), [card.version], 30000);
+  const mktBy: Record<string, any> = Object.fromEntries((mkt.data ?? []).map((r) => [r.code, r]));
   const templates = useAsync<any[]>(() => crm("/templates"), []);
   const dlg = useRef<HTMLDialogElement>(null);
   const rows = list.data ?? [];
@@ -47,6 +51,7 @@ export default function Board() {
               <h3><span>{L.stage[s]}</span><span>{cols[s].length}{s === "hold" ? " · " + cols[s].reduce((a, p) => a + p.position_pct, 0).toFixed(1) + "%" : ""}</span></h3>
               {cols[s].map((p) => {
                 const stale = p.stage === "hold" && p.days_since_update >= 30;
+                const m = toCode(p.company_id) ? mktBy[toCode(p.company_id)!] : null;
                 return (
                   <div className={`card ${p.tier}`} key={p.id} onClick={() => card.open(p.id)}>
                     <div className="top">
@@ -59,6 +64,14 @@ export default function Board() {
                       <span className={stale ? "stale" : ""}>{p.days_since_update == null ? "" : p.days_since_update + " 天未更新"}</span>
                       <span>{p.interaction_count} 筆紀錄</span>
                     </div>
+                    {m && m.price != null && (
+                      <div className="mkt-line">
+                        <span className={cls(m.change)}>{num(m.price)} {pctS(m.change_pct)}</span>
+                        {m.foreign_net_lots != null && <span className="muted">外資 <b className={cls(m.foreign_net_lots)}>{signed(m.foreign_net_lots)}</b> 張</span>}
+                        {m.margin_change != null && <span className="muted">融資 {signed(m.margin_change)}</span>}
+                      </div>
+                    )}
+                    {p.latest_brief?.text && <div className="brief-line" title={p.latest_brief.text}>{p.latest_brief.date} · {p.latest_brief.text}</div>}
                   </div>
                 );
               })}

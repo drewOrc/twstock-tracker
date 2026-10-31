@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from .. import scheduler as sched
 from ..config import settings
 from ..db import get_db
-from ..models import AlertRule, JobRun, WatchlistItem
+from ..models import AlertRule, JobRun, Stock, WatchlistItem
 from ..schemas import (
     AlertRuleCreate,
     AlertRuleUpdate,
@@ -93,6 +93,28 @@ def stock_indicators(code: str, limit: int = 250, db: Session = Depends(get_db))
     last = {col: _clean(ind[col].iloc[-1]) for col in ind.columns if col != "date"}
     last["date"] = ind["date"].iloc[-1].isoformat()
     return {"code": code.upper(), "rows": len(ind), "series": series, "latest": last}
+
+
+@router.get("/stocks/{code}/summary")
+def stock_summary(code: str, news: bool = True, db: Session = Depends(get_db)):
+    """基本介紹 + 最近狀況: profile, price / relative strength / range / MA, chips, screener & alerts
+    context, watchlist membership, latest headlines (news=false skips the RSS call)."""
+    from ..services.stock_summary import stock_summary as build
+
+    try:
+        return build(db, code, with_news=news)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/stocks/{code}/news")
+def stock_news(code: str, limit: int = 10, db: Session = Depends(get_db)):
+    from ..services.stock_summary import fetch_news
+
+    stock = db.get(Stock, code.upper())
+    name = stock.name if stock and stock.name else code.upper()
+    items, err = fetch_news(name, limit)
+    return {"query": name, "items": items, "error": err}
 
 
 @router.get("/stocks/{code}/institutional")

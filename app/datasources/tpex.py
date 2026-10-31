@@ -37,6 +37,8 @@ class TPEXClient:
 
     # ------------------------------------------------------------------ master
     def fetch_stock_list(self) -> list[dict]:
+        from .twse import _clean, _iso
+
         rows = self.http.get_json(f"{OPENAPI}/mopsfin_t187ap03_O")
         out = []
         for r in rows:
@@ -49,6 +51,16 @@ class TPEXClient:
                     "name": (r.get("CompanyAbbreviation") or r.get("CompanyName") or "").strip(),
                     "market": self.market,
                     "industry": (r.get("SecuritiesIndustryCode") or "").strip() or None,
+                    "full_name": _clean(r.get("CompanyName")),
+                    "name_en": _clean(r.get("Symbol")),
+                    "chairman": _clean(r.get("Chairman")),
+                    "general_manager": _clean(r.get("GeneralManager")),
+                    "founded": _iso(r.get("DateOfIncorporation")),
+                    "listed_date": _iso(r.get("DateOfListing")),
+                    "capital": to_float(r.get("Paidin.Capital.NTDollars")),
+                    "shares_issued": to_int(r.get("IssueShares")),
+                    "website": _clean(r.get("WebAddress")),
+                    "address": _clean(r.get("Address")),
                 }
             )
         return out

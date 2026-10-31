@@ -4,7 +4,9 @@ import { CandleChart } from "../components/Chart";
 import { useAction, useToast } from "../components/Toast";
 import { cls, int, num, pctS, signed, time } from "../lib/format";
 
-type Tab = "chart" | "ind" | "inst" | "margin" | "alerts";
+import { StockSummary } from "../components/StockSummary";
+
+type Tab = "summary" | "chart" | "ind" | "inst" | "margin" | "alerts";
 export interface WatchlistDef { id: number; name: string; color: string | null; sort_order: number; system_key: string | null; count: number }
 
 const ALL = 0; // pseudo id for "全部"
@@ -208,7 +210,7 @@ function ListDots({ lists, member, onToggle }: { lists: WatchlistDef[]; member: 
 
 /* ------------------------------------------------------------------ detail */
 function Detail({ code, name }: { code: string; name?: string }) {
-  const [tab, setTab] = useState<Tab>("chart");
+  const [tab, setTab] = useState<Tab>("summary");
   const ind = useAsync(() => engine(`/stocks/${code}/indicators?limit=250`), [code]);
   const inst = useAsync<any[]>(() => engine(`/stocks/${code}/institutional?limit=40`), [code]);
   const margin = useAsync<any[]>(() => engine(`/stocks/${code}/margin?limit=40`), [code]);
@@ -221,12 +223,13 @@ function Detail({ code, name }: { code: string; name?: string }) {
       <div className="panel-head">
         <h2>{code} {name ?? ""}</h2>
         <div className="tabs">
-          {([["chart", "走勢"], ["ind", "指標"], ["inst", "法人"], ["margin", "融資券"], ["alerts", "警示"]] as [Tab, string][]).map(([k, label]) => (
+          {([["summary", "概況"], ["chart", "走勢"], ["ind", "指標"], ["inst", "法人"], ["margin", "融資券"], ["alerts", "警示"]] as [Tab, string][]).map(([k, label]) => (
             <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{label}</button>
           ))}
         </div>
       </div>
 
+      {tab === "summary" && <div className="summary-wrap"><StockSummary code={code} /></div>}
       {tab === "chart" && <CandleChart series={ind.data?.series && ind.data.rows ? ind.data.series : null} />}
 
       {tab === "ind" && (
