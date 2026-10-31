@@ -4,6 +4,7 @@ import { CardProvider } from "./components/CardDrawer";
 import { AuthProvider } from "./components/Auth";
 import Layout from "./components/Layout";
 import Users from "./pages/Users";
+import Knowledge from "./pages/Knowledge";
 import Watchlist from "./pages/Watchlist";
 import Market from "./pages/Market";
 import Screener from "./pages/Screener";
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/morning" element={<Morning />} />
             <Route path="/proposals" element={<Proposals />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/knowledge" element={<Knowledge />} />
             <Route path="*" element={<Navigate to="/watchlist" replace />} />
           </Route>
         </Routes>
