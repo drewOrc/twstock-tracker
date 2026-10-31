@@ -170,6 +170,14 @@ def tasks(limit: int = Query(5, le=20), company: str | None = None, news: bool =
     return out
 
 
+@router.get("/graph")
+def graph(ids: str | None = None, depth: int = Query(1, ge=0, le=3), holding: bool = False, db: Session = Depends(get_db)):
+    """Subgraph for the graph page: ids = comma separated company ids (TW:2330,US:NVDA); omit for the
+    whole graph. depth = hops around the ids. holding = include ETF constituent edges."""
+    id_list = [x.strip() for x in ids.split(",") if x.strip()] if ids else None
+    return kn.subgraph(db, id_list, depth, holding)
+
+
 @router.get("/companies")
 def companies(q: str | None = None, market: str | None = None, limit: int = Query(500, le=2000), db: Session = Depends(get_db)):
     return kn.list_companies(db, q, market, limit)

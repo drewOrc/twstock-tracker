@@ -442,3 +442,36 @@ def import_from_crm(db: Session, path: Path) -> dict:
     finally:
         src.close()
     return counts
+
+
+# ------------------------------------------------------------------ subgraphs for the graph page
+def subgraph(db: Session, ids: list[str] | None, depth: int = 1, include_holding: bool = False, limit_nodes: int = 400) -> dict:
+    """Nodes and edges around a set of companies. depth 0 = only edges among the given ids,
+    depth 1 = plus their direct neighbours, depth 2 = neighbours of neighbours. ids=None = everything."""
+    rel_ok = (lambda e: True) if include_holding else (lambda e: e.relation != "holding")
+    all_edges = [e for e in db.execute(select(Edge)).scalars() if rel_ok(e)]
+    if ids is None:
+        keep_edges = all_edges
+        node_ids = {e.customer_id for e in keep_edges} | {e.supplier_id for e in keep_edges}
+        seeds: set[str] = set()
+    else:
+        seeds = {i.upper() for i in ids if i}
+        frontier, node_ids = set(seeds), set(seeds)
+        for _ in range(max(0, depth)):
+            nxt = set()
+            for e in all_edges:
+                if e.customer_id in frontier:
+                    nxt.add(e.supplier_id)
+                if e.supplier_id in frontier:
+                    nxt.add(e.customer_id)
+            nxt -= node_ids
+            node_ids |= nxt
+            frontier = nxt
+            if len(node_ids) > limit_nodes:
+                break
+        keep_edges = [e for e in all_edges if e.customer_id in node_ids and e.supplier_id in node_ids]
+    comps = {c.id: c for c in db.execute(select(Company).where(Company.id.in_(node_ids))).scalars()} if node_ids else {}
+    nodes = [{"id": c.id, "name": c.name, "market": c.market, "sector": c.sector, "seed": c.id in seeds} for c in comps.values()]
+    nodes.sort(key=lambda n: (not n["seed"], n["market"], n["id"]))
+    names = {c.id: c.name for c in comps.values()}
+    return {"nodes": nodes, "edges": [edge_dict(e, names) for e in keep_edges], "seeds": sorted(seeds), "depth": depth, "include_holding": include_holding}
