@@ -1,4 +1,8 @@
-"""Notification channels: console log, LINE Messaging API push, SMTP email."""
+"""Notification channels: console log, LINE Messaging API push, SMTP email.
+
+Per-user routing: when a User is given, LINE goes to that user's line_user_id and email to that
+user's address (falling back to the global .env targets when the user has none). Global sends
+(screener digest, test from the admin) use the .env targets."""
 from __future__ import annotations
 
 import logging
@@ -8,6 +12,7 @@ from email.message import EmailMessage
 import httpx
 
 from ..config import settings
+from ..models import User
 
 log = logging.getLogger("notify")
 
@@ -15,28 +20,33 @@ LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push"
 
 
 class Notifier:
-    def channels(self) -> dict[str, bool]:
+    def channels(self, user: User | None = None) -> dict[str, bool]:
+        line_to = (user.line_user_id if user and user.line_user_id else settings.line_user_id)
+        email_to = [user.email] if user and user.email else settings.email_recipients
         return {
             "console": settings.notify_console,
-            "line": settings.line_enabled,
-            "email": settings.email_enabled,
+            "line": bool(settings.line_channel_access_token and line_to),
+            "email": bool(settings.smtp_host and settings.email_from and email_to),
         }
 
-    def send(self, title: str, message: str) -> dict[str, str]:
+    def send(self, title: str, message: str, user: User | None = None) -> dict[str, str]:
         """Send to every enabled channel; returns {channel: 'ok' | 'error: ...'}."""
         results: dict[str, str] = {}
+        who = f"@{user.username} " if user else ""
         if settings.notify_console:
-            log.info("[%s] %s", title, message)
+            log.info("%s[%s] %s", who, title, message)
             results["console"] = "ok"
-        if settings.line_enabled:
-            results["line"] = self._line(f"{title}\n{message}")
-        if settings.email_enabled:
-            results["email"] = self._email(title, message)
+        line_to = user.line_user_id if user and user.line_user_id else settings.line_user_id
+        if settings.line_channel_access_token and line_to:
+            results["line"] = self._line(f"{title}\n{message}", line_to)
+        email_to = [user.email] if user and user.email else settings.email_recipients
+        if settings.smtp_host and settings.email_from and email_to:
+            results["email"] = self._email(title, message, email_to)
         return results
 
     # ------------------------------------------------------------------ LINE
     @staticmethod
-    def _line(text: str) -> str:
+    def _line(text: str, to: str) -> str:
         try:
             r = httpx.post(
                 LINE_PUSH_URL,
@@ -44,7 +54,7 @@ class Notifier:
                     "Authorization": f"Bearer {settings.line_channel_access_token}",
                     "Content-Type": "application/json",
                 },
-                json={"to": settings.line_user_id, "messages": [{"type": "text", "text": text[:5000]}]},
+                json={"to": to, "messages": [{"type": "text", "text": text[:5000]}]},
                 timeout=15,
             )
             if r.status_code >= 300:
@@ -56,11 +66,11 @@ class Notifier:
 
     # ------------------------------------------------------------------ email
     @staticmethod
-    def _email(subject: str, body: str) -> str:
+    def _email(subject: str, body: str, recipients: list[str]) -> str:
         msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = settings.email_from
-        msg["To"] = ", ".join(settings.email_recipients)
+        msg["To"] = ", ".join(recipients)
         msg.set_content(body)
         try:
             with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as s:

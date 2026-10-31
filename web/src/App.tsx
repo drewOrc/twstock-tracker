@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ToastProvider } from "./components/Toast";
 import { CardProvider } from "./components/CardDrawer";
+import { AuthProvider } from "./components/Auth";
 import Layout from "./components/Layout";
+import Users from "./pages/Users";
 import Watchlist from "./pages/Watchlist";
 import Market from "./pages/Market";
 import Screener from "./pages/Screener";
@@ -15,6 +17,7 @@ import Proposals from "./pages/crm/Proposals";
 export default function App() {
   return (
     <ToastProvider>
+      <AuthProvider>
       <CardProvider>
         <Routes>
           <Route element={<Layout />}>
@@ -28,10 +31,12 @@ export default function App() {
             <Route path="/graph" element={<Graph />} />
             <Route path="/morning" element={<Morning />} />
             <Route path="/proposals" element={<Proposals />} />
+            <Route path="/users" element={<Users />} />
             <Route path="*" element={<Navigate to="/watchlist" replace />} />
           </Route>
         </Routes>
       </CardProvider>
+      </AuthProvider>
     </ToastProvider>
   );
 }

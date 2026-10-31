@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     # logging: also write rotating files to data/logs/engine.log (needed when running as a service)
     log_to_file: bool = True
 
+    # accounts & sessions (local accounts; the first admin is created from these or via `cli.py users create`)
+    admin_username: str = ""
+    admin_password: str = ""
+    session_days: int = 30
+    cookie_name: str = "tw_session"
+    cookie_secure: bool = False  # set true behind HTTPS (Cloudflare Tunnel)
+    login_max_failures: int = 5  # per username+ip within login_lockout_minutes
+    login_lockout_minutes: int = 10
+
     # scheduler
     scheduler_enabled: bool = True
     realtime_interval_seconds: int = 10
@@ -25,6 +34,7 @@ class Settings(BaseSettings):
     # Stock CRM backend proxied under /api/crm/* (separate process, separate repo)
     crm_base_url: str = "http://127.0.0.1:8765"
     crm_timeout: float = 30.0
+    crm_facade_token: str = ""  # shared secret sent as X-Facade-Token so the CRM trusts X-User-Id
     crm_sync_alerts: bool = True  # mirror CRM target / stop prices as alert rules
     crm_proposals: bool = True  # write fired alerts back to CRM as interaction proposals
     crm_alert_kind: str = "alert"  # interaction kind for those proposals ("news" if the CRM lacks "alert")

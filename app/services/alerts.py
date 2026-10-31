@@ -169,8 +169,11 @@ def _label(db: Session, code: str) -> str:
 
 
 def fire(db: Session, rule: AlertRule, message: str, value: float | None, now: datetime) -> AlertEvent:
+    from ..models import User
+
     title = f"【{_label(db, rule.code)}】{RULE_TYPES.get(rule.rule_type, {}).get('label', rule.rule_type)}"
-    delivery = notifier.send(title, message)
+    owner = db.get(User, rule.user_id) if rule.user_id else None
+    delivery = notifier.send(title, message, user=owner)
     try:  # mirror into the CRM as an interaction proposal when the stock has a card
         from .crm_link import notify_alert
 
@@ -180,6 +183,7 @@ def fire(db: Session, rule: AlertRule, message: str, value: float | None, now: d
         log.warning("CRM proposal for alert failed: %s", exc)
         delivery["crm"] = f"error: {type(exc).__name__}"
     event = AlertEvent(
+        user_id=rule.user_id,
         rule_id=rule.id,
         code=rule.code,
         rule_type=rule.rule_type,
@@ -351,11 +355,13 @@ def _ma(ind, n: int, idx: int) -> float | None:
     return None if v != v else float(v)
 
 
-def evaluate_daily(db: Session, codes: set[str] | None = None) -> list[AlertEvent]:
+def evaluate_daily(db: Session, codes: set[str] | None = None, user_id: int | None = None) -> list[AlertEvent]:
     now = datetime.now()
     stmt = select(AlertRule).where(AlertRule.enabled.is_(True))
     if codes:
         stmt = stmt.where(AlertRule.code.in_(codes))
+    if user_id is not None:
+        stmt = stmt.where(AlertRule.user_id == user_id)
     rules = list(db.execute(stmt).scalars())
     cache: dict = {}
     events = []
@@ -373,8 +379,10 @@ def evaluate_daily(db: Session, codes: set[str] | None = None) -> list[AlertEven
     return events
 
 
-def recent_events(db: Session, limit: int = 100, code: str | None = None) -> list[AlertEvent]:
+def recent_events(db: Session, limit: int = 100, code: str | None = None, user_id: int | None = None) -> list[AlertEvent]:
     stmt = select(AlertEvent).order_by(AlertEvent.triggered_at.desc()).limit(limit)
     if code:
         stmt = stmt.where(AlertEvent.code == code)
+    if user_id is not None:
+        stmt = stmt.where(AlertEvent.user_id == user_id)
     return list(db.execute(stmt).scalars())

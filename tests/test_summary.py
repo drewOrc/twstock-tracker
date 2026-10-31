@@ -2,10 +2,8 @@
 from datetime import date, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
 
 from app.db import init_db, session_scope
-from app.main import app
 from app.models import DailyPrice, IndexDaily, InstitutionalFlow, MarginBalance, Stock
 from app.services import stock_summary as ss
 from app.services.industries import MAIN_INDEX
@@ -66,15 +64,14 @@ def test_summary_blocks(seeded):
     assert out["news"]["items"][0]["title"] == "測試甲 新聞"
 
 
-def test_summary_endpoint_and_unknown_code(seeded, monkeypatch):
+def test_summary_endpoint_and_unknown_code(seeded, client, monkeypatch):
     from app.services import market_data as md
 
     monkeypatch.setattr(md, "refresh_stock_list", lambda db: 0)
     monkeypatch.setattr(md.mis, "fetch_quotes", lambda items: [])
-    with TestClient(app) as c:
-        r = c.get("/api/stocks/9903/summary?news=false")
-        assert r.status_code == 200
-        body = r.json()
-        assert body["profile"]["market_label"] == "上櫃" and "news" not in body
-        assert body["price"]["sector"]["rank_20d"] == 3
-        assert c.get("/api/stocks/ZZZZ/summary?news=false").status_code == 404
+    r = client.get("/api/market/stocks/9903/summary?news=false")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["profile"]["market_label"] == "上櫃" and "news" not in body
+    assert body["price"]["sector"]["rank_20d"] == 3
+    assert client.get("/api/market/stocks/ZZZZ/summary?news=false").status_code == 404

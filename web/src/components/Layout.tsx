@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { crm, engine, useAsync } from "../api/client";
+import { crm, engine, publicApi, useAsync } from "../api/client";
 import { time } from "../lib/format";
+import { useMe } from "./Auth";
 
 const ENGINE_TABS = [
   ["/watchlist", "追蹤池"],
@@ -17,7 +18,8 @@ const CRM_TABS = [
 ];
 
 export default function Layout() {
-  const health = useAsync(() => engine("/health"), [], 30000);
+  const { me, logout } = useMe();
+  const health = useAsync(() => publicApi("/health"), [], 30000);
   const jobs = useAsync(() => engine("/jobs"), [], 30000);
   const pending = useAsync(() => crm("/proposals").catch(() => []), [], 60000);
   const h = health.data;
@@ -61,6 +63,12 @@ export default function Layout() {
           ) : (
             "連線中…"
           )}
+        </div>
+        <div className="user-menu">
+          <NavLink to="/users" className={({ isActive }) => (isActive ? "active" : "")} title={me?.role === "admin" ? "帳號管理" : "我的帳號"}>
+            {me?.display_name || me?.username}{me?.role === "admin" ? <span className="badge" style={{ marginLeft: 4 }}>管理員</span> : null}
+          </NavLink>
+          <button className="ghost tiny" onClick={logout}>登出</button>
         </div>
       </header>
       <main className="page">

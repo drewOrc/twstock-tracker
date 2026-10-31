@@ -18,6 +18,29 @@ Python 後端 + Web 儀表板的台股追蹤引擎，資料來源全部是證交
 | 統一介面 | Vite + React + TypeScript 前端，同一導覽列整合引擎與 Stock CRM 兩個後端 |
 | REST API | 所有資料都有 JSON API，Stock CRM 的 MCP 也透過它取行情 |
 
+## 帳號、多使用者與對外存取
+
+系統給一家人用：每個人有自己的清單、警示、卡片、部位與通知，市場資料全部共用。
+
+- **登入**：本機帳號 + 密碼（PBKDF2 雜湊），伺服器端 session、HttpOnly cookie（HTTPS 下自動 Secure），登入失敗限速。第一次啟動若沒有任何帳號，會用 `.env` 的 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 建管理員，沒設則建 `admin` 並把隨機密碼寫進日誌。
+- **角色**：`admin` 可管理帳號、執行工作、測試通知、同步系統清單；`member` 只能用自己的資料。管理員在「帳號管理」頁建帳號、重設密碼、填每個人的 LINE 使用者 ID 與 Email（警示會推到本人）。
+- **API 命名空間**：`/api/market/*` 通用層（登入即可讀）、`/api/me/*` 個人化層（自動依登入者過濾）、`/api/admin/*`、`/api/auth/*`、`/api/crm/*`（代理到 Stock CRM 並帶 `X-User-Id` / `X-User-Name` / `X-Facade-Token`）。舊的 `/api/*` 路徑仍可用。
+- **對外**：兩個後端仍只綁 127.0.0.1。公開存取走 Cloudflare Tunnel（不開路由器埠、自帶 HTTPS）：
+
+```powershell
+scripts\tunnel_quick.ps1                                   # 測試用：臨時 trycloudflare.com 網址
+scripts\tunnel_install.ps1 -Hostname stocks.你的網域.com -Start   # 正式：固定網址 + 開機自動啟動
+```
+
+可再加 Cloudflare Access 當外圍第二層；應用層身份仍以本機帳號為準。
+
+```bash
+python cli.py users create mom --name 媽媽 --line Uxxxxxxxx     # 建成員（會提示輸入密碼）
+python cli.py users create drew --admin
+python cli.py users passwd drew
+python cli.py users list
+```
+
 ## 統一介面：引擎 + Stock CRM
 
 引擎與 [Stock CRM](../stockcrm)（供應鏈投資日誌）是兩個獨立後端，由同一個 React 前端整合：
@@ -312,7 +335,11 @@ web/                   統一前端（Vite + React + TypeScript）
   src/pages/           追蹤池、盤面分化、選股掃描、警示、排程、crm/{看板、關係圖、早晨、提案}
   src/components/      Layout、CardDrawer（CRM 卡片抽屜）、Chart、Toast
   src/lib/format.ts    格式化與 TW:2330 ↔ 2330 橋接
-scripts/               Windows 服務化：service_install / uninstall、run_engine / run_crm 監控迴圈
+  api/
+    auth_routes.py     登入 / 登出 / me / 改密碼；/api/admin/users 帳號管理
+    deps.py            current_user / require_admin
+  services/auth.py     密碼雜湊、session、登入限速、首次管理員
+scripts/               Windows 服務化：service_install / stop / restart / uninstall、run_engine / run_crm；Cloudflare Tunnel：tunnel_quick / tunnel_install / run_tunnel
 static/                舊版純 HTML 儀表板（/legacy/）
 cli.py                 命令列工具
 tests/                 離線單元測試與 API 測試（python -m pytest -q）
