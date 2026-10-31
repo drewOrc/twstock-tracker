@@ -34,7 +34,9 @@ scripts\tunnel_install.ps1 -Hostname stocks.你的網域.com -Start   # 正式�
 
 可再加 Cloudflare Access 當外圍第二層；應用層身份仍以本機帳號為準。
 
-還沒有網域時，可以先把**臨時隧道**服務化：`scripts\tunnel_quick_install.ps1 -Start` 登記同名的 `TWStock Tunnel` 任務，開機自動跑 `*.trycloudflare.com` 網址並在斷線後重連。網址每次重啟都會變，所以引擎把目前的網址寫在 `data\tunnel-url.txt`、顯示在 `/api/health` 的 `public_url` 與「系統」頁，並在網址改變時透過 LINE / Email 推播（`tunnel_watch`）。之後有網域再跑 `tunnel_install.ps1 -Hostname …`，同名任務會被固定隧道取代；固定網址也可直接設 `.env` 的 `PUBLIC_URL`。
+**不買網域也能有固定網址：Tailscale Funnel**。`scripts\funnel_install.ps1` 會裝 Tailscale、請你在瀏覽器登入一次、開啟 Funnel 指向引擎，網址是 `https://<電腦名>.<tailnet>.ts.net`，固定不變、由 Tailscale 的服務在開機時自動恢復，並把它寫進 `.env` 的 `PUBLIC_URL`（引擎的 `/api/health` 與「系統」頁會顯示）。Funnel 轉發時帶 `X-Forwarded-Proto: https`，cookie 會自動加 Secure。關閉：`tailscale funnel --https=443 off`。
+
+還沒有網域、也不想用 Tailscale 時，可以先把**臨時隧道**服務化：`scripts\tunnel_quick_install.ps1 -Start` 登記同名的 `TWStock Tunnel` 任務，開機自動跑 `*.trycloudflare.com` 網址並在斷線後重連。網址每次重啟都會變，所以引擎把目前的網址寫在 `data\tunnel-url.txt`、顯示在 `/api/health` 的 `public_url` 與「系統」頁，並在網址改變時透過 LINE / Email 推播（`tunnel_watch`）。之後有網域再跑 `tunnel_install.ps1 -Hostname …`，同名任務會被固定隧道取代；固定網址也可直接設 `.env` 的 `PUBLIC_URL`。
 
 ```bash
 python cli.py users create mom --name 媽媽 --line Uxxxxxxxx     # 建成員（會提示輸入密碼）
