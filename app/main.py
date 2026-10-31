@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from . import scheduler  # noqa: E402
-from .api import auth_routes, crm_proxy, routes  # noqa: E402
+from .api import auth_routes, crm_proxy, knowledge_routes, routes  # noqa: E402
 from .config import BASE_DIR, settings  # noqa: E402
 from .db import init_db  # noqa: E402
 
@@ -65,6 +65,7 @@ app.include_router(routes.public, prefix="/api")
 app.include_router(auth_routes.router)
 app.include_router(auth_routes.admin_router)
 app.include_router(routes.market, prefix="/api/market")
+app.include_router(knowledge_routes.router, prefix="/api/market/knowledge")
 app.include_router(routes.me, prefix="/api/me")
 app.include_router(routes.admin, prefix="/api/admin")
 app.include_router(routes.market, prefix="/api", include_in_schema=False)

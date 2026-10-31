@@ -1,13 +1,52 @@
+import logging
+import sqlite3
 from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from .config import BASE_DIR, settings
 
+log = logging.getLogger(__name__)
 (BASE_DIR / "data").mkdir(exist_ok=True)
 
+
+def sqlite_path(url: str) -> Path | None:
+    if url.startswith("sqlite:///") and not url.endswith(":memory:"):
+        return Path(url[len("sqlite:///"):])
+    return None
+
+
+def adopt_legacy_database(target: Path | None, legacy: Path) -> bool:
+    """First start after the move to the shared file: copy the engine's old per-project database
+    into market.db (SQLite online backup, safe with WAL) so nothing has to be re-fetched. The old
+    file is left in place with a note; only a brand-new market.db is ever written to."""
+    if target is None or target.name != "market.db" or target.exists():
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not legacy.exists() or legacy.resolve() == target.resolve():
+        return False
+    src = sqlite3.connect(legacy)
+    dst = sqlite3.connect(target)
+    try:
+        src.backup(dst)
+    finally:
+        dst.close()
+        src.close()
+    (legacy.parent / "MOVED_TO_market.db.txt").write_text(
+        f"{datetime.now():%Y-%m-%d %H:%M} copied {legacy.name} -> {target}\n"
+        "The engine now uses the shared database; this file is only a backup.\n",
+        encoding="utf-8",
+    )
+    log.warning("adopted legacy database %s -> %s", legacy, target)
+    return True
+
+
 _is_sqlite = settings.database_url.startswith("sqlite")
+if _is_sqlite and (_p := sqlite_path(settings.database_url)) is not None:
+    _p.parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(
     settings.database_url,
     connect_args={"check_same_thread": False} if _is_sqlite else {},
@@ -35,12 +74,51 @@ class Base(DeclarativeBase):
 def init_db() -> None:
     from . import models  # noqa: F401  (register tables)
 
+    if _is_sqlite:
+        adopt_legacy_database(sqlite_path(settings.database_url), settings.legacy_database)
     _prepare_multiuser_migration()  # rename pre-user tables so create_all builds the new shape
     Base.metadata.create_all(engine)
     _add_missing_columns()
     admin_id = _bootstrap_admin_id()
     _migrate_single_watchlist(admin_id)
     _finish_multiuser_migration(admin_id)
+    _register_schema()
+
+
+# Who writes which table in the shared file. The CRM registers its own personal_* rows the same way.
+ENGINE_TABLES: dict[str, tuple[str, str]] = {
+    "users": ("auth", "local accounts; the CRM reads id/username/display_name/role, never password_hash"),
+    "sessions": ("auth", "login sessions"),
+    "schema_registry": ("ops", "this table; each side upserts rows for the tables it owns"),
+    "stocks": ("knowledge", "TWSE/TPEx master list (code without market prefix)"),
+    "daily_prices": ("knowledge", "daily OHLCV"),
+    "institutional_flows": ("knowledge", "三大法人"),
+    "margin_balances": ("knowledge", "融資融券"),
+    "market_stats": ("knowledge", "breadth / sector stats"),
+    "index_daily": ("knowledge", "index closes"),
+    "screener_results": ("knowledge", "screener output per day"),
+    "realtime_quotes": ("knowledge", "intraday quotes"),
+    "knowledge_companies": ("knowledge", "graph nodes MARKET:TICKER; CRM reads, writes via PUT /api/market/knowledge/companies/{id}"),
+    "knowledge_edges": ("knowledge", "customer -> supplier relations; writes via /api/market/knowledge/edges"),
+    "knowledge_edge_weights": ("knowledge", "revenue_share history per edge"),
+    "knowledge_company_briefs": ("knowledge", "profile / highlights prose, append-only"),
+    "knowledge_financials_ytd": ("knowledge", "quarterly YTD figures from open data"),
+    "knowledge_metrics": ("knowledge", "actual metrics (model values are personal, CRM-owned)"),
+    "watchlists": ("personal", "per-user lists (user_id)"),
+    "watchlist_items": ("personal", "list membership"),
+    "alert_rules": ("personal", "per-user alert rules"),
+    "alert_events": ("personal", "fired alerts"),
+    "job_runs": ("ops", "engine job history"),
+}
+
+
+def _register_schema() -> None:
+    from .models import SchemaRegistry
+
+    with SessionLocal() as db:
+        for name, (layer, note) in ENGINE_TABLES.items():
+            db.merge(SchemaRegistry(table_name=name, layer=layer, owner="engine", writer="twstock-tracker", note=note))
+        db.commit()
 
 
 def _bootstrap_admin_id() -> int:
