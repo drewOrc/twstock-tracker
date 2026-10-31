@@ -65,7 +65,7 @@ export default function Graph() {
         <div className="panel-head">
           <h2>關係圖</h2>
           <span className="legend-crm"><i className="sw core" />核心 <i className="sw satellite" />衛星 <i className="sw watch" />觀察 <i className="sw blacklist" />黑名單 <i className="sw none" />無卡片</span>
-          <span className="muted small">線寬 = 客戶佔供應商營收比重，橘線 = 夥伴關係。點節點看卡片。</span>
+          <span className="muted small">線寬 = 客戶佔供應商營收比重；橘線 = 夥伴，綠線 = 成分股（ETF 持有權重）。點節點看卡片。</span>
           <button className="ghost" onClick={() => dlg.current?.showModal()}>＋ 新增關係</button>
         </div>
         {g.error && <div className="empty up">CRM 無法連線：{g.error}</div>}
@@ -73,7 +73,7 @@ export default function Graph() {
           <div className="graph">
             <svg viewBox={`0 0 ${layout.W} ${layout.H}`} width={layout.W} height={layout.H}>
               {Object.keys(layout.layers).map((d) => (
-                <text key={d} className="layer-label" x={layout.PAD + Number(d) * layout.L_W + 60} y={18}>{Number(d) === 0 ? "終端客戶 / 夥伴" : `第 ${d} 層供應商`}</text>
+                <text key={d} className="layer-label" x={layout.PAD + Number(d) * layout.L_W + 60} y={18}>{Number(d) === 0 ? "終端客戶 / 夥伴 / ETF" : `第 ${d} 層供應商 / 成分股`}</text>
               ))}
               {layout.edges.map((e: any) => {
                 const a = layout.pos[e.customer_id], b = layout.pos[e.supplier_id], mx = (a.x + b.x) / 2;
@@ -122,7 +122,7 @@ export default function Graph() {
       <dialog ref={dlg}>
         <form onSubmit={addEdge}>
           <h3>新增關係</h3>
-          <label>關係類型<select name="relation"><option value="customer">客戶 → 供應商（客戶向供應商採購）</option><option value="partner">夥伴 → 我方（產能或授權夥伴）</option></select></label>
+          <label>關係類型<select name="relation"><option value="customer">客戶 → 供應商（客戶向供應商採購）</option><option value="partner">夥伴 → 我方（產能或授權夥伴）</option><option value="holding">ETF → 成分股（持有權重）</option></select></label>
           <label>客戶 / 夥伴<select name="customer_id">{(g.data?.nodes ?? []).map((n: any) => <option key={n.id} value={n.id}>{n.name} ({n.id})</option>)}</select></label>
           <label>供應商 / 我方<select name="supplier_id">{(g.data?.nodes ?? []).map((n: any) => <option key={n.id} value={n.id}>{n.name} ({n.id})</option>)}</select></label>
           <div className="row">

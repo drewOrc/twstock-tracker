@@ -77,9 +77,23 @@ python cli.py alerts                   # 立即評估日線型警示
 python cli.py notify-test
 ```
 
-### 讓它無人值守
+### 讓它無人值守（Windows 服務化）
 
-排程器跑在伺服器程序裡，程序活著才會自動執行；電腦休眠、重開機或關掉終端機都會停。要真正無人值守，用 Windows 工作排程器設「登入時啟動 `python cli.py serve`」並勾選失敗重啟，或用 NSSM 包成服務，或部署到一台 VPS。通知只會送到 `.env` 裡設定好的管道，沒填 LINE / Email 時只有 console。
+排程器跑在伺服器程序裡，程序活著才會自動執行。`scripts/` 提供不需要管理員權限、不需要第三方工具的做法：用 Windows 工作排程器在登入時啟動一個監控迴圈，程序掛掉 5 秒內重啟，視窗隱藏。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\service_install.ps1 -WithCrm -Start   # 引擎 + Stock CRM，立刻啟動
+powershell -ExecutionPolicy Bypass -File scripts\service_uninstall.ps1                  # 移除兩個任務並停掉程序
+```
+
+- 任務名稱 `TWStock Engine`（8000）與 `TWStock CRM`（8765，可省略 `-WithCrm`）。CRM 只被啟動，程式碼不動。
+- 日誌：`data/logs/engine.log`（應用程式，5 MB × 5 輪替）、`supervisor.log`、`crm-supervisor.log`。
+- 限制：任務在你登入的互動工作階段執行，電腦必須在排程時間保持開機且未休眠（電源選項把「睡眠」設為永不，或改用 VPS）。
+- 通知只會送到 `.env` 裡設定好的管道，沒填 LINE / Email 時只有 console 與日誌。
+
+### 資料健康
+
+儀表板「系統」頁的「資料健康」區塊（`GET /api/health/data`）依發布時程檢查每張表：日線 / 盤面 15:00 後、三大法人 17:00 後、融資券 22:00 後、選股掃描 17:00 後應有最新交易日的資料；落後一個交易日顯示「落後 1 日」（國定假日也會這樣顯示，屬正常），落後兩日以上為「過期」。同時列出 24 小時內失敗的工作、每張表最近一次成功餵資料的工作、資料庫大小。
 
 ## 多追蹤池
 
@@ -185,7 +199,8 @@ python cli.py flows --days 60
 ## REST API 摘要
 
 ```
-GET    /api/health
+GET    /api/health                                  # 引擎、排程器、通知管道、CRM 連線
+GET    /api/health/data                             # 各表新鮮度、失敗工作、儲存空間
 GET    /api/stocks/search?q=台積
 GET    /api/stocks/{code}/daily?limit=250
 GET    /api/stocks/{code}/indicators?limit=250     # series + latest
@@ -250,6 +265,7 @@ app/
   services/
     market_data.py     抓取 + upsert + 追蹤池總覽
     watchlists.py      多追蹤池：清單 CRUD、成員關係、系統清單同步
+    health.py          資料健康：各表新鮮度、失敗工作、儲存空間
     indicators.py      技術指標
     alerts.py          警示規則定義與評估
     notifier.py        LINE / Email / console
@@ -265,6 +281,7 @@ web/                   統一前端（Vite + React + TypeScript）
   src/pages/           追蹤池、盤面分化、選股掃描、警示、排程、crm/{看板、關係圖、早晨、提案}
   src/components/      Layout、CardDrawer（CRM 卡片抽屜）、Chart、Toast
   src/lib/format.ts    格式化與 TW:2330 ↔ 2330 橋接
+scripts/               Windows 服務化：service_install / uninstall、run_engine / run_crm 監控迴圈
 static/                舊版純 HTML 儀表板（/legacy/）
 cli.py                 命令列工具
 tests/                 離線單元測試與 API 測試（python -m pytest -q）
