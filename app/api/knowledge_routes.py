@@ -166,7 +166,7 @@ def tasks(limit: int = Query(5, le=20), company: str | None = None, news: bool =
     for c, labels in targets:
         m = extractor.material(db, c, with_news=news)
         out.append({"company_id": c.id, "name": c.name, "needs": labels, "material": m,
-                    "answer_with": {"endpoint": "POST /api/market/knowledge/proposals/batch", "kinds": ["brief", "edge", "metric"], "company_id_format": "TW:2330 / US:NVDA"}})
+                    "answer_with": {"endpoint": "POST /api/market/knowledge/proposals/batch", "kinds": ["brief", "edge", "metric"], "company_id_format": "TW:2330 / US:NVDA / KR:005930"}})
     return out
 
 

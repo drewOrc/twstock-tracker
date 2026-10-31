@@ -306,7 +306,7 @@ class SchemaRegistry(Base):
 
 
 class Company(Base):
-    """Graph node. id is MARKET:TICKER ("TW:2330", "US:NVDA"); TW ids map onto `stocks.code`."""
+    """Graph node. id is MARKET:TICKER ("TW:2330", "US:NVDA", "KR:005930"); TW ids map onto `stocks.code`."""
 
     __tablename__ = "knowledge_companies"
 

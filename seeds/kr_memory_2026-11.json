@@ -1,0 +1,32 @@
+{
+  "created_by": "agent:claude",
+  "note": "知識層開放 KR 市場後補的韓系節點：三星電子與 SK 海力士，以及它們和現有台美節點之間的關係（HBM、晶圓代工、手機晶片、半導體設備）。2026-11-01 由 agent 依年報、10-K 主要客戶揭露、公開合作宣布與產業報導整理；revenue_share 為估計值，null 表示比重不明。以提案送入。",
+  "default_source": "公司年報 / 10-K 主要客戶揭露、公開合作宣布與產業報導（截至 2025 年報與 2026 上半年），agent 整理 2026-11-01",
+  "companies": [
+    {"id": "KR:005930", "name": "三星電子", "name_en": "Samsung Electronics", "sector": "半導體 / 消費電子"},
+    {"id": "KR:000660", "name": "SK海力士", "name_en": "SK hynix", "sector": "記憶體"}
+  ],
+  "profiles": [
+    {"company_id": "KR:005930", "content": "韓國三星電子，全球最大記憶體廠（DRAM、NAND、HBM），同時經營晶圓代工、Galaxy 手機、電視家電與面板（三星顯示器）。手機晶片部分採用高通與聯發科；晶圓代工是台積電的主要競爭者，2025 年取得特斯拉 AI 晶片長約；HBM 在輝達的認證落後 SK 海力士。"},
+    {"company_id": "KR:000660", "content": "韓國 SK 海力士，全球第二大 DRAM 廠與 HBM 龍頭，是輝達 AI 加速器最主要的高頻寬記憶體供應商，輝達占營收比重估計三成以上；HBM4 的底層邏輯晶片（base die）委由台積電生產。和南亞科、美光同屬 DRAM 循環股。"}
+  ],
+  "edges": [
+    {"customer_id": "US:NVDA", "supplier_id": "KR:000660", "revenue_share": 0.3, "confidence": "medium", "source": "SK 海力士為輝達 HBM 主要供應商；輝達占比為產業估計", "notes": "HBM3E / HBM4"},
+    {"customer_id": "US:NVDA", "supplier_id": "KR:005930", "revenue_share": null, "confidence": "low", "source": "產業報導：三星 HBM3E 2025 年下半年起小量供貨輝達，GDDR7 用於消費級顯示卡", "notes": "HBM / GDDR"},
+    {"customer_id": "US:AMD", "supplier_id": "KR:005930", "revenue_share": null, "confidence": "medium", "source": "三星與超微公開確認 MI350 系列採用三星 HBM3E", "notes": "HBM3E"},
+    {"customer_id": "US:AMD", "supplier_id": "KR:000660", "revenue_share": null, "confidence": "low", "source": "產業報導：超微 MI 系列 HBM 亦向 SK 海力士採購", "notes": "HBM"},
+    {"customer_id": "KR:000660", "supplier_id": "TW:2330", "revenue_share": null, "confidence": "high", "source": "SK 海力士與台積電 2024 年公開宣布 HBM4 base die 合作", "notes": "HBM4 底層邏輯晶片"},
+    {"customer_id": "US:TSLA", "supplier_id": "KR:005930", "revenue_share": null, "confidence": "high", "source": "三星 2025-07 公告與特斯拉簽訂約 165 億美元晶圓代工合約（AI6 晶片）", "notes": "晶圓代工"},
+    {"customer_id": "KR:005930", "supplier_id": "US:QCOM", "revenue_share": 0.1, "confidence": "high", "source": "高通 10-K：三星為前幾大客戶之一，Galaxy S 系列採用 Snapdragon；比重為估計", "notes": "手機 SoC"},
+    {"customer_id": "KR:005930", "supplier_id": "TW:2454", "revenue_share": null, "confidence": "medium", "source": "三星 Galaxy A 系列與平板採用聯發科天璣晶片", "notes": "手機 SoC"},
+    {"customer_id": "KR:005930", "supplier_id": "TW:3008", "revenue_share": null, "confidence": "low", "source": "產業報導：大立光供應三星旗艦手機鏡頭", "notes": "手機鏡頭"},
+    {"customer_id": "US:AAPL", "supplier_id": "KR:005930", "revenue_share": null, "confidence": "medium", "source": "蘋果 iPhone OLED 面板與 DRAM / NAND 向三星採購（三星顯示器為子公司）", "notes": "OLED 面板 / 記憶體"},
+    {"customer_id": "US:AAPL", "supplier_id": "KR:000660", "revenue_share": null, "confidence": "low", "source": "產業報導：iPhone DRAM / NAND 供應商包含 SK 海力士", "notes": "記憶體"},
+    {"customer_id": "KR:005930", "supplier_id": "US:AMAT", "revenue_share": 0.1, "confidence": "medium", "source": "應用材料 10-K：三星為單一占比逾一成的客戶；比重為估計", "notes": "半導體設備"},
+    {"customer_id": "KR:005930", "supplier_id": "US:LRCX", "revenue_share": 0.15, "confidence": "medium", "source": "科林研發 10-K：三星為主要客戶之一；比重為估計", "notes": "蝕刻 / 沉積設備"},
+    {"customer_id": "KR:000660", "supplier_id": "US:LRCX", "revenue_share": null, "confidence": "low", "source": "科林研發 10-K：SK 海力士為主要客戶之一", "notes": "蝕刻 / 沉積設備"},
+    {"customer_id": "KR:000660", "supplier_id": "US:AMAT", "revenue_share": null, "confidence": "low", "source": "應用材料客戶包含 SK 海力士", "notes": "半導體設備"},
+    {"customer_id": "US:GOOGL", "supplier_id": "KR:005930", "revenue_share": null, "confidence": "low", "source": "Pixel Tensor G1–G4 由三星代工，G5 起改台積電", "notes": "晶圓代工（已轉單）"},
+    {"customer_id": "US:MSFT", "supplier_id": "KR:000660", "revenue_share": null, "confidence": "low", "source": "產業報導：雲端伺服器 DRAM 向三大記憶體廠採購", "notes": "伺服器 DRAM"}
+  ]
+}
