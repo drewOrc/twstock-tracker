@@ -15,8 +15,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from . import scheduler  # noqa: E402
-from .api import crm_proxy  # noqa: E402
-from .api.routes import router  # noqa: E402
+from .api import auth_routes, crm_proxy, routes  # noqa: E402
 from .config import BASE_DIR, settings  # noqa: E402
 from .db import init_db  # noqa: E402
 
@@ -49,18 +48,28 @@ async def lifespan(_app: FastAPI):
     scheduler.shutdown()
 
 
-app = FastAPI(title=settings.app_name, version="0.2.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="0.4.0", lifespan=lifespan)
 
-# Open CORS so the Vite dev server (and any other frontend) can call this API directly.
+# Same-origin in production (served from this process). CORS stays open for the Vite dev server;
+# cookies are only sent cross-origin when allow_credentials is on, which we keep off.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(router)
+# namespaces: /api/market (通用層), /api/me (個人化層), /api/admin; legacy /api/* kept for compatibility
+app.include_router(routes.public, prefix="/api")
+app.include_router(auth_routes.router)
+app.include_router(auth_routes.admin_router)
+app.include_router(routes.market, prefix="/api/market")
+app.include_router(routes.me, prefix="/api/me")
+app.include_router(routes.admin, prefix="/api/admin")
+app.include_router(routes.market, prefix="/api", include_in_schema=False)
+app.include_router(routes.me, prefix="/api", include_in_schema=False)
+app.include_router(routes.admin, prefix="/api", include_in_schema=False)
 app.include_router(crm_proxy.router)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

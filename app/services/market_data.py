@@ -140,8 +140,10 @@ def watch_codes(db: Session) -> set[str]:
     return set(db.execute(select(distinct(WatchlistItem.code))).scalars())
 
 
-def watched_stocks(db: Session, list_id: int | None = None) -> list[Stock]:
-    """Distinct stocks in one list (or in any list), ordered by first time added."""
+def watched_stocks(db: Session, list_id: int | None = None, user_id: int | None = None) -> list[Stock]:
+    """Distinct stocks in one list, in one user's lists, or in any list; ordered by first time added."""
+    from ..models import Watchlist
+
     stmt = (
         select(Stock, func.min(WatchlistItem.added_at).label("first_added"))
         .join(WatchlistItem, WatchlistItem.code == Stock.code)
@@ -150,6 +152,8 @@ def watched_stocks(db: Session, list_id: int | None = None) -> list[Stock]:
     )
     if list_id is not None:
         stmt = stmt.where(WatchlistItem.watchlist_id == list_id)
+    elif user_id is not None:
+        stmt = stmt.join(Watchlist, Watchlist.id == WatchlistItem.watchlist_id).where(Watchlist.user_id == user_id)
     return [row[0] for row in db.execute(stmt).all()]
 
 
@@ -397,12 +401,17 @@ class _Row:
         self.code, self.stock, self.note, self.lists = code, stock, note, lists
 
 
-def watchlist_overview(db: Session, list_id: int | None = None) -> list[dict]:
-    """One row per distinct stock in the list (or in any list), with price / flow snapshots,
-    the ids of every list it belongs to, and the note from the selected list (or the first one)."""
-    stocks = watched_stocks(db, list_id)
+def watchlist_overview(db: Session, list_id: int | None = None, user_id: int | None = None) -> list[dict]:
+    """One row per distinct stock in the list (or in the user's lists), with price / flow snapshots,
+    the ids of the user's lists it belongs to, and the note from the selected list (or the first one)."""
+    from ..models import Watchlist
+
+    stocks = watched_stocks(db, list_id, user_id)
     codes = {s.code for s in stocks}
-    items = db.execute(select(WatchlistItem).where(WatchlistItem.code.in_(codes)).order_by(WatchlistItem.added_at)).scalars() if codes else []
+    item_stmt = select(WatchlistItem).where(WatchlistItem.code.in_(codes)).order_by(WatchlistItem.added_at)
+    if user_id is not None:
+        item_stmt = item_stmt.join(Watchlist, Watchlist.id == WatchlistItem.watchlist_id).where(Watchlist.user_id == user_id)
+    items = db.execute(item_stmt).scalars() if codes else []
     lists_of: dict[str, list[int]] = {}
     note_of: dict[str, str | None] = {}
     for it in items:

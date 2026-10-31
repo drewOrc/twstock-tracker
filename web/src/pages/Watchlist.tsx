@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { engine, useAsync } from "../api/client";
+import { admin, engine, useAsync } from "../api/client";
+import { useMe } from "../components/Auth";
 import { CandleChart } from "../components/Chart";
 import { useAction, useToast } from "../components/Toast";
 import { cls, int, num, pctS, signed, time } from "../lib/format";
@@ -91,7 +92,8 @@ export default function Watchlist() {
     if (!confirm(`刪除清單「${current.name}」？裡面 ${current.count} 檔股票若不在其他清單，會停止追蹤並刪除警示規則。`)) return;
     await act(async () => { await engine(`/watchlists/${current.id}`, { method: "DELETE" }); setListId(ALL); await lists.reload(); }, "清單已刪除");
   }
-  const syncLists = () => act(async () => { await engine("/watchlists/sync", { method: "POST" }); toast("系統清單同步中（CRM、掃描候選、今日警示），約 10 秒"); setTimeout(refreshAll, 10000); });
+  const { me } = useMe();
+  const syncLists = () => act(async () => { await admin("/watchlists/sync", { method: "POST" }); toast("系統清單同步中（CRM、掃描候選、今日警示），約 10 秒"); setTimeout(refreshAll, 10000); });
   const refreshQuotes = () => act(async () => {
     const r = await engine("/quotes/refresh", { method: "POST" });
     toast(`已更新 ${r.quotes.length} 檔報價${r.alerts.length ? `，觸發 ${r.alerts.length} 個警示` : ""}`);
@@ -112,7 +114,7 @@ export default function Watchlist() {
           <h2>追蹤池</h2>
           <button className="ghost tiny" onClick={createList}>＋ 新清單</button>
           {current && !current.system_key && (<><button className="ghost tiny" onClick={renameList}>改名</button><button className="ghost tiny" onClick={deleteList}>刪除清單</button></>)}
-          <button className="ghost tiny" onClick={syncLists} title="重建 CRM 持有 / 觀察、掃描候選、今日警示">同步系統清單</button>
+          {me?.role === "admin" && <button className="ghost tiny" onClick={syncLists} title="重建所有人的 CRM 持有 / 觀察、掃描候選、今日警示">同步系統清單</button>}
           <button className="ghost" onClick={refreshQuotes} title="立即向證交所抓一次即時報價">更新報價</button>
         </div>
 

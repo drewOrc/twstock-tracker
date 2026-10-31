@@ -1,4 +1,5 @@
-import { engine, useAsync } from "../api/client";
+import { admin, engine, useAsync } from "../api/client";
+import { useMe } from "../components/Auth";
 import { useAction, useToast } from "../components/Toast";
 import { time } from "../lib/format";
 
@@ -38,6 +39,8 @@ const STATUS_L: Record<string, string> = { ok: "正常", warn: "落後 1 日", b
 export default function Jobs() {
   const toast = useToast();
   const act = useAction();
+  const { me } = useMe();
+  const isAdmin = me?.role === "admin";
   const health = useAsync(() => engine("/health"), [], 30000);
   const data = useAsync(() => engine("/health/data"), [], 60000);
   const jobs = useAsync(() => engine("/jobs"), [], 30000);
@@ -47,20 +50,20 @@ export default function Jobs() {
 
   const run = (name: string) =>
     act(async () => {
-      await engine(`/jobs/${name}/run`, { method: "POST" });
+      await admin(`/jobs/${name}/run`, { method: "POST" });
       toast(`${JOB_LABELS[name] ?? name} 已在背景開始`);
       setTimeout(runs.reload, 8000);
     });
   const notifyTest = () =>
     act(async () => {
-      const r = await engine("/notify/test", { method: "POST", body: { message: "測試通知 from 台股追蹤引擎" } });
+      const r = await admin("/notify/test", { method: "POST", body: { message: "測試通知 from 台股追蹤引擎" } });
       toast("通知結果：" + Object.entries(r.result).map(([k, v]) => `${k}=${v}`).join("; "));
     });
 
   return (
     <>
       <section className="panel">
-        <div className="panel-head"><h2>系統狀態</h2><button className="ghost" onClick={notifyTest}>測試通知</button></div>
+        <div className="panel-head"><h2>系統狀態</h2>{isAdmin && <button className="ghost" onClick={notifyTest}>測試通知</button>}</div>
         {h && (
           <div className="tiles">
             <div className="tile"><div className="k">引擎</div><div className="v">{h.status}</div><div className="s">{h.time}</div></div>
@@ -111,14 +114,14 @@ export default function Jobs() {
         )}
       </section>
 
-      <section className="panel">
-        <div className="panel-head"><h2>手動執行</h2></div>
+      {isAdmin && <section className="panel">
+        <div className="panel-head"><h2>手動執行 <span className="muted small">（管理員）</span></h2></div>
         <div className="job-buttons">
           {Object.entries(JOB_LABELS).map(([k, label]) => (
             <button key={k} className="ghost" onClick={() => run(k)}>{label}</button>
           ))}
         </div>
-      </section>
+      </section>}
 
       <section className="panel">
         <div className="panel-head"><h2>排程</h2></div>

@@ -1,9 +1,6 @@
 """Data-health freshness rules and the /api/health/data endpoint."""
 from datetime import date, datetime
 
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.services.health import business_days_between, expected_date, freshness
 
 
@@ -29,9 +26,8 @@ def test_freshness_levels():
     assert business_days_between(date(2026, 11, 2), date(2026, 10, 30)) == 0
 
 
-def test_health_data_endpoint_shape():
-    with TestClient(app) as c:
-        r = c.get("/api/health/data")
+def test_health_data_endpoint_shape(client):
+    r = client.get("/api/market/health/data")
     assert r.status_code == 200
     body = r.json()
     assert body["overall"] in {"ok", "warn", "bad"}
