@@ -83,10 +83,13 @@ python cli.py notify-test
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\service_install.ps1 -WithCrm -Start   # 引擎 + Stock CRM，立刻啟動
+powershell -ExecutionPolicy Bypass -File scripts\service_restart.ps1 [-Engine|-Crm]    # 更新程式碼後重啟
+powershell -ExecutionPolicy Bypass -File scripts\service_stop.ps1 [-Engine|-Crm]       # 停止（任務 + 伺服器程序）
 powershell -ExecutionPolicy Bypass -File scripts\service_uninstall.ps1                  # 移除兩個任務並停掉程序
 ```
 
 - 任務名稱 `TWStock Engine`（8000）與 `TWStock CRM`（8765，可省略 `-WithCrm`）。CRM 只被啟動，程式碼不動。
+- 請用 `service_stop.ps1` / `service_restart.ps1` 而不是直接 `Stop-ScheduledTask`：後者只會結束監控迴圈，伺服器程序會留下來佔住 port。監控迴圈每次啟動前也會回收佔用該 port 的舊程序，所以即使只重啟任務也會在幾秒內自我修復。
 - 日誌：`data/logs/engine.log`（應用程式，5 MB × 5 輪替）、`supervisor.log`、`crm-supervisor.log`。
 - 限制：任務在你登入的互動工作階段執行，電腦必須在排程時間保持開機且未休眠（電源選項把「睡眠」設為永不，或改用 VPS）。
 - 通知只會送到 `.env` 裡設定好的管道，沒填 LINE / Email 時只有 console 與日誌。
