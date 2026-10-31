@@ -30,6 +30,7 @@ if (-not $cf) {
     winget install --id Cloudflare.cloudflared -e --accept-package-agreements --accept-source-agreements
     $cf = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
     if (-not $cf) { $cf = "$env:ProgramFiles\cloudflared\cloudflared.exe" }
+    if (-not (Test-Path $cf)) { $cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe" }  # winget MSI installs here
 }
 
 $cfDir = Join-Path $env:USERPROFILE ".cloudflared"

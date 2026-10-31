@@ -8,5 +8,6 @@ if (-not $cf) {
     winget install --id Cloudflare.cloudflared -e --accept-package-agreements --accept-source-agreements
     $cf = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
     if (-not $cf) { $cf = "$env:ProgramFiles\cloudflared\cloudflared.exe" }
+    if (-not (Test-Path $cf)) { $cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe" }  # winget MSI installs here
 }
 & $cf tunnel --no-autoupdate --url "http://127.0.0.1:$Port"
