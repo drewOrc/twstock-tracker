@@ -104,6 +104,7 @@ ENGINE_TABLES: dict[str, tuple[str, str]] = {
     "knowledge_company_briefs": ("knowledge", "profile / highlights prose, append-only"),
     "knowledge_financials_ytd": ("knowledge", "quarterly YTD figures from open data"),
     "knowledge_metrics": ("knowledge", "actual metrics (model values are personal, CRM-owned)"),
+    "knowledge_proposals": ("knowledge", "review queue for knowledge_* changes; anyone proposes, admins approve"),
     "watchlists": ("personal", "per-user lists (user_id)"),
     "watchlist_items": ("personal", "list membership"),
     "alert_rules": ("personal", "per-user alert rules"),

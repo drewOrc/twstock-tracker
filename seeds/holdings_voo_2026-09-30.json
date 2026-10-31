@@ -1,0 +1,32 @@
+{
+  "as_of": "2026-09-30",
+  "source": "https://stockanalysis.com/etf/voo/holdings/",
+  "fund_name": "Vanguard S&P 500 ETF",
+  "prune": false,
+  "rows": [
+    {"company_id": "US:NVDA", "name": "輝達", "name_en": "NVIDIA", "sector": "半導體 / AI 加速器", "weight_pct": 8.39},
+    {"company_id": "US:AAPL", "name": "蘋果", "name_en": "Apple", "sector": "消費電子", "weight_pct": 7.38},
+    {"company_id": "US:MSFT", "name": "微軟", "name_en": "Microsoft", "sector": "軟體 / 雲端", "weight_pct": 5.78},
+    {"company_id": "US:AMZN", "name": "亞馬遜", "name_en": "Amazon", "sector": "電商 / 雲端", "weight_pct": 3.71},
+    {"company_id": "US:GOOGL", "name": "Alphabet", "name_en": "Alphabet (Google)", "sector": "網路 / 雲端", "weight_pct": 5.52},
+    {"company_id": "US:AVGO", "name": "博通", "name_en": "Broadcom", "sector": "半導體 / 網通", "weight_pct": 2.54},
+    {"company_id": "US:META", "name": "Meta", "name_en": "Meta Platforms", "sector": "網路 / 社群", "weight_pct": 2.43},
+    {"company_id": "US:MU", "name": "美光", "name_en": "Micron Technology", "sector": "記憶體", "weight_pct": 1.83},
+    {"company_id": "US:TSLA", "name": "特斯拉", "name_en": "Tesla", "sector": "電動車 / 儲能", "weight_pct": 1.52},
+    {"company_id": "US:AMD", "name": "超微", "name_en": "Advanced Micro Devices", "sector": "半導體 / CPU GPU", "weight_pct": 1.52},
+    {"company_id": "US:BRK.B", "name": "波克夏", "name_en": "Berkshire Hathaway", "sector": "金融 / 控股", "weight_pct": 1.41},
+    {"company_id": "US:LLY", "name": "禮來", "name_en": "Eli Lilly", "sector": "製藥", "weight_pct": 1.41},
+    {"company_id": "US:JPM", "name": "摩根大通", "name_en": "JPMorgan Chase", "sector": "金融", "weight_pct": 1.34},
+    {"company_id": "US:XOM", "name": "埃克森美孚", "name_en": "ExxonMobil", "sector": "能源", "weight_pct": 1.02},
+    {"company_id": "US:JNJ", "name": "嬌生", "name_en": "Johnson & Johnson", "sector": "醫療", "weight_pct": 0.97},
+    {"company_id": "US:V", "name": "Visa", "name_en": "Visa", "sector": "支付", "weight_pct": 0.91},
+    {"company_id": "US:INTC", "name": "英特爾", "name_en": "Intel", "sector": "半導體 / CPU", "weight_pct": 0.91},
+    {"company_id": "US:WMT", "name": "沃爾瑪", "name_en": "Walmart", "sector": "零售", "weight_pct": 0.70},
+    {"company_id": "US:ABBV", "name": "艾伯維", "name_en": "AbbVie", "sector": "製藥", "weight_pct": 0.70},
+    {"company_id": "US:MA", "name": "萬事達卡", "name_en": "Mastercard", "sector": "支付", "weight_pct": 0.68},
+    {"company_id": "US:PLTR", "name": "Palantir", "name_en": "Palantir Technologies", "sector": "軟體 / 資料分析", "weight_pct": 0.65},
+    {"company_id": "US:CSCO", "name": "思科", "name_en": "Cisco Systems", "sector": "網通設備", "weight_pct": 0.64},
+    {"company_id": "US:LRCX", "name": "科林研發", "name_en": "Lam Research", "sector": "半導體設備", "weight_pct": 0.62},
+    {"company_id": "US:AMAT", "name": "應用材料", "name_en": "Applied Materials", "sector": "半導體設備", "weight_pct": 0.62}
+  ]
+}

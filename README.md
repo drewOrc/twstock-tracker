@@ -65,6 +65,22 @@ python cli.py knowledge stats
 python cli.py knowledge registry
 ```
 
+### 知識層怎麼自己長大
+
+知識層不靠人一筆一筆填。三種來源、三種進法：
+
+| 來源 | 例子 | 進法 |
+| --- | --- | --- |
+| **官方 / 公開事實** | 證交所公司清單、月營收、季報、股數、ETF 成分股與權重 | 引擎排程直接寫入，`created_by=system:*`，帶來源網址 |
+| **從事實推導的文字** | 「9 月營收 5,118 億，年增 +54.6%，為近一年新高」 | `knowledge_highlights` 工作直接寫成當月的近期重點（每家每月一則） |
+| **需要判斷的內容** | 供應鏈關係、客戶佔比、公司簡介、新聞解讀 | 進 **提案佇列** `knowledge_proposals`，管理員在「知識層」頁核准後才寫入 |
+
+- **節點同步** `knowledge_sync`（每 6 小時）：所有人追蹤的台股、CRM 卡片、掃描候選都會有一個圖節點，名稱與產業來自交易所清單，ETF 自動標 `sector=ETF`。
+- **ETF 成分股** `etf_holdings`（每週二 07:00，或 `cli.py knowledge holdings 0050`）：從 MoneyDJ 全部持股頁讀成分股與權重，寫成 `holding` 邊（成分股 → ETF，`revenue_share` = 權重），權重歷史留在 `knowledge_edge_weights`，退出的成分股自動移除。美股 ETF 用 `--file seeds/holdings_voo_2026-09-30.json` 這種檔案載入。
+- **提案佇列**：`POST /api/market/knowledge/proposals`（任何登入者、服務金鑰、agent）送 `{kind, payload, rationale, evidence, source, confidence}`；同一件事待審中重複提出只會更新不會重複；管理員 `POST /proposals/decide {ids, approve}` 批次核准，核准即透過 `services/knowledge.py` 套用並記 `applied_ref`，失敗標 `failed` 留原因。`GET /knowledge/todo` 列出還缺簡介、近期重點過期、沒有關係、關係沒來源的公司，給 agent 當工作清單。
+- **種子檔**：`seeds/supply_chain_2026-10.json` 是 agent 整理的 0050 / 00981A / VOO 成分股簡介與供應鏈關係，`cli.py knowledge propose-seed <file>` 整包送進佇列，`cli.py knowledge approve [--kind] [--ids]` 從命令列核准。
+- **LLM 抽取器**（選用）：`EXTRACTOR_ENABLED=true` 加 `ANTHROPIC_API_KEY`（或 `ant auth login`），`knowledge_extract` 每晚 20:30 讀待補清單，把引擎自己的材料（基本資料、月營收、新聞標題）交給 Claude 產出簡介、近期重點與供應鏈關係，**全部只進提案佇列**，帶信心度與新聞證據；`cli.py knowledge extract --company TW:2330` 單跑一家。
+
 ## 統一介面：引擎 + Stock CRM
 
 引擎與 [Stock CRM](../stockcrm)（供應鏈投資日誌）是兩個獨立後端，由同一個 React 前端整合：

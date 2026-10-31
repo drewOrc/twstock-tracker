@@ -13,13 +13,15 @@ export default function Graph() {
   const g = useAsync(() => crm("/graph"), [card.version]);
   const ov = useAsync<any[]>(() => crm("/overlap"), [card.version]);
   const [hover, setHover] = useState<string | null>(null);
+  const [showHolding, setShowHolding] = useState(false); // ETF constituent edges are many; off by default
   const dlg = useRef<HTMLDialogElement>(null);
 
   const layout = useMemo(() => {
     if (!g.data) return null;
     const byId: Record<string, any> = Object.fromEntries(g.data.nodes.map((n: any) => [n.id, n]));
+    const allEdges: any[] = showHolding ? g.data.edges : g.data.edges.filter((e: any) => e.relation !== "holding");
     const suppliersOf: Record<string, any[]> = {}, customersOf: Record<string, any[]> = {};
-    g.data.edges.forEach((e: any) => { (suppliersOf[e.customer_id] ??= []).push(e); (customersOf[e.supplier_id] ??= []).push(e); });
+    allEdges.forEach((e: any) => { (suppliersOf[e.customer_id] ??= []).push(e); (customersOf[e.supplier_id] ??= []).push(e); });
     const depth: Record<string, number> = {};
     const dep = (id: string, seen = new Set<string>()): number => {
       if (depth[id] != null) return depth[id];
@@ -42,8 +44,8 @@ export default function Graph() {
       const offset = (H - list.length * ROW) / 2;
       list.forEach((n, i) => (pos[n.id] = { x: PAD + Number(d) * L_W + 60, y: offset + i * ROW + ROW / 2 }));
     });
-    return { byId, nodes, layers, pos, W, H, L_W, PAD, edges: g.data.edges.filter((e: any) => pos[e.customer_id] && pos[e.supplier_id]) };
-  }, [g.data]);
+    return { byId, nodes, layers, pos, W, H, L_W, PAD, edges: allEdges.filter((e: any) => pos[e.customer_id] && pos[e.supplier_id]) };
+  }, [g.data, showHolding]);
 
   async function addEdge(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -66,6 +68,7 @@ export default function Graph() {
           <h2>關係圖</h2>
           <span className="legend-crm"><i className="sw core" />核心 <i className="sw satellite" />衛星 <i className="sw watch" />觀察 <i className="sw blacklist" />黑名單 <i className="sw none" />無卡片</span>
           <span className="muted small">線寬 = 客戶佔供應商營收比重；橘線 = 夥伴，綠線 = 成分股（ETF 持有權重）。點節點看卡片；台股節點沒有卡片也能看公司概況並一鍵建卡。</span>
+          <label className="muted small"><input type="checkbox" checked={showHolding} onChange={(e) => setShowHolding(e.target.checked)} /> 顯示 ETF 成分股邊</label>
           <button className="ghost" onClick={() => dlg.current?.showModal()}>＋ 新增關係</button>
         </div>
         {g.error && <div className="empty up">CRM 無法連線：{g.error}</div>}

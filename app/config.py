@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     crm_proposals: bool = True  # write fired alerts back to CRM as interaction proposals
     crm_alert_kind: str = "alert"  # interaction kind for those proposals ("news" if the CRM lacks "alert")
 
+    # LLM extractor for the knowledge layer (proposals only; needs the anthropic SDK and credentials)
+    anthropic_api_key: str = ""  # or leave empty and use `ant auth login`
+    extractor_enabled: bool = False
+    extractor_model: str = "claude-opus-5-5"
+    extractor_batch: int = 8  # companies per run
+
     # http
     http_timeout: float = 20.0
     request_delay_seconds: float = 1.5  # TWSE throttles ~3 requests / 5 seconds
