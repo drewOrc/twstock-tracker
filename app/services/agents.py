@@ -139,7 +139,8 @@ def within_rate(k: AgentKey, now: float | None = None) -> bool:
 def touch(db: Session, k: AgentKey) -> None:
     """Record last use, at most once a minute per key so reads do not turn into writes."""
     now = time.monotonic()
-    if now - _touched.get(k.id, 0) < 60:
+    last = _touched.get(k.id)
+    if last is not None and now - last < 60:  # monotonic() can be < 60 on a fresh machine, so no 0 sentinel
         return
     _touched[k.id] = now
     k.last_used_at = datetime.now()
