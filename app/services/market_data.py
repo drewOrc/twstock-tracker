@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 import pandas as pd
-from sqlalchemy import func, select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -135,12 +135,22 @@ def search_stocks(db: Session, q: str, limit: int = 20) -> list[Stock]:
 
 
 # ---------------------------------------------------------------------- watchlist helpers
-def watchlist_items(db: Session) -> list[WatchlistItem]:
-    return list(db.execute(select(WatchlistItem).order_by(WatchlistItem.added_at)).scalars())
-
-
 def watch_codes(db: Session) -> set[str]:
-    return {w.code for w in watchlist_items(db)}
+    """Union of every list: the set of codes the engine keeps data for."""
+    return set(db.execute(select(distinct(WatchlistItem.code))).scalars())
+
+
+def watched_stocks(db: Session, list_id: int | None = None) -> list[Stock]:
+    """Distinct stocks in one list (or in any list), ordered by first time added."""
+    stmt = (
+        select(Stock, func.min(WatchlistItem.added_at).label("first_added"))
+        .join(WatchlistItem, WatchlistItem.code == Stock.code)
+        .group_by(Stock.code)
+        .order_by("first_added")
+    )
+    if list_id is not None:
+        stmt = stmt.where(WatchlistItem.watchlist_id == list_id)
+    return [row[0] for row in db.execute(stmt).all()]
 
 
 # ---------------------------------------------------------------------- daily prices
@@ -324,8 +334,7 @@ def load_margin(db: Session, code: str, limit: int = 60) -> list[MarginBalance]:
 
 # ---------------------------------------------------------------------- realtime
 def update_realtime(db: Session, codes: set[str] | None = None) -> list[dict]:
-    items = watchlist_items(db)
-    pairs = [(w.code, w.stock.market if w.stock else "TWSE") for w in items if codes is None or w.code in codes]
+    pairs = [(s.code, s.market or "TWSE") for s in watched_stocks(db) if codes is None or s.code in codes]
     if not pairs:
         return []
     quotes = mis.fetch_quotes(pairs)
@@ -381,16 +390,33 @@ def _lots(shares: int | None) -> int | None:
     return round(shares / 1000) if shares is not None else None
 
 
-def watchlist_overview(db: Session) -> list[dict]:
-    items = watchlist_items(db)
-    codes = {w.code for w in items}
+class _Row:
+    __slots__ = ("code", "stock", "note", "lists")
+
+    def __init__(self, code: str, stock: Stock, note: str | None, lists: list[int]):
+        self.code, self.stock, self.note, self.lists = code, stock, note, lists
+
+
+def watchlist_overview(db: Session, list_id: int | None = None) -> list[dict]:
+    """One row per distinct stock in the list (or in any list), with price / flow snapshots,
+    the ids of every list it belongs to, and the note from the selected list (or the first one)."""
+    stocks = watched_stocks(db, list_id)
+    codes = {s.code for s in stocks}
+    items = db.execute(select(WatchlistItem).where(WatchlistItem.code.in_(codes)).order_by(WatchlistItem.added_at)).scalars() if codes else []
+    lists_of: dict[str, list[int]] = {}
+    note_of: dict[str, str | None] = {}
+    for it in items:
+        lists_of.setdefault(it.code, []).append(it.watchlist_id)
+        if it.note and (it.code not in note_of or it.watchlist_id == list_id):
+            note_of[it.code] = it.note
     rt = {q.code: q for q in load_realtime(db, codes)}
     daily = _latest_per_code(db, DailyPrice, codes)
     prev = _prev_daily(db, daily)
     inst = _latest_per_code(db, InstitutionalFlow, codes)
     margin = _latest_per_code(db, MarginBalance, codes)
     out = []
-    for w in items:
+    for s in stocks:
+        w = _Row(code=s.code, stock=s, note=note_of.get(s.code), lists=lists_of.get(s.code, []))
         q = rt.get(w.code)
         d = daily.get(w.code)
         p = prev.get(w.code)
@@ -404,10 +430,10 @@ def watchlist_overview(db: Session) -> list[dict]:
         out.append(
             {
                 "code": w.code,
-                "name": w.stock.name if w.stock else None,
-                "market": w.stock.market if w.stock else None,
+                "name": w.stock.name,
+                "market": w.stock.market,
                 "note": w.note,
-                "tags": w.tags,
+                "lists": w.lists,
                 "price": price,
                 "prev_close": prev_close,
                 "change": change,

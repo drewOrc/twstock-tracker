@@ -16,10 +16,14 @@ export default function Screener() {
   const d = date && dates.data?.includes(date) ? date : dates.data?.[0] ?? null;
   const res = useAsync(() => (d ? engine(`/screener?preset=${preset}&date=${d}&limit=50`) : Promise.resolve(null)), [preset, d]);
   const watch = useAsync<any[]>(() => engine("/watchlist"), []);
+  const lists = useAsync<any[]>(() => engine("/watchlists"), []);
+  const userLists = (lists.data ?? []).filter((l) => !l.system_key);
+  const [target, setTarget] = useState<number | null>(null);
+  const targetId = target ?? userLists[0]?.id ?? null;
   const [turnover, setTurnover] = useState("0.5");
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const watched = new Set((watch.data ?? []).map((w) => w.code));
+  const inTarget = new Set((watch.data ?? []).filter((w) => !targetId || (w.lists ?? []).includes(targetId)).map((w) => w.code));
 
   async function run(notify: boolean) {
     setBusy(true);
@@ -34,9 +38,11 @@ export default function Screener() {
   }
   const addWatch = (code: string) =>
     act(async () => {
-      const r = await engine("/watchlist", { method: "POST", body: { code, note: `選股掃描 ${d}` } });
-      toast(`已加入 ${r.code} ${r.name}，背景補歷史中`);
+      const r = await engine("/watchlist", { method: "POST", body: { code, note: `選股掃描 ${d}`, lists: targetId ? [targetId] : null } });
+      const name = userLists.find((l) => l.id === targetId)?.name ?? "追蹤池";
+      toast(`已加入 ${r.code} ${r.name} 到「${name}」${r.backfill ? "，背景補歷史中" : ""}`);
       watch.reload();
+      lists.reload();
     });
 
   const rows: any[] = res.data?.results ?? [];
@@ -54,6 +60,11 @@ export default function Screener() {
             {(dates.data ?? []).map((v) => <option key={v}>{v}</option>)}
           </select>
           <label className="muted small">成交額 ≥ <input type="number" step="0.1" min="0" style={{ width: "4.5em" }} value={turnover} onChange={(e) => setTurnover(e.target.value)} /> 億</label>
+          <label className="muted small">加入到{" "}
+            <select value={targetId ?? ""} onChange={(e) => setTarget(Number(e.target.value))}>
+              {userLists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </label>
           <button disabled={busy} onClick={() => run(false)}>重新掃描</button>
           <button disabled={busy} className="ghost" onClick={() => run(true)} title="掃描並把前 10 名推播到已設定的通知管道">掃描並通知</button>
         </div>
@@ -93,7 +104,7 @@ export default function Screener() {
                       <td className="num"><Ratio v={f.trust5 ?? null} /></td>
                       <td className="num"><span className="score-bar"><i style={{ width: `${x.score}%` }} /></span>{x.score.toFixed(0)}</td>
                       <td>{(x.tags ?? []).map((t: string) => <span key={t} className={`tag ${tagClass(t)}`}>{t}</span>)}</td>
-                      <td>{watched.has(x.code) ? <span className="badge live">追蹤中</span> : <button className="ghost" onClick={(e) => { e.stopPropagation(); addWatch(x.code); }}>加入追蹤</button>}</td>
+                      <td>{inTarget.has(x.code) ? <span className="badge live">已在清單</span> : <button className="ghost" onClick={(e) => { e.stopPropagation(); addWatch(x.code); }}>加入</button>}</td>
                     </tr>
                     {open === x.code && (
                       <tr className="factor-row">
