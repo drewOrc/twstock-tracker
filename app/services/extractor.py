@@ -53,13 +53,13 @@ def _client():
     return anthropic.Anthropic(api_key=settings.anthropic_api_key or None)
 
 
-def _material(db: Session, c: Company) -> dict:
+def material(db: Session, c: Company, with_news: bool = True) -> dict:
     """What the model gets to read: exchange profile, numbers, graph neighbours, headlines."""
     code = c.ticker if c.market == "TW" else None
     out: dict = {"company": kn.company_dict(c), "known_edges": kn.edges_for(db, c.id), "briefs": kn.latest_briefs(db, c.id)}
     if code:
         try:
-            s = stock_summary.stock_summary(db, code, with_news=True)
+            s = stock_summary.stock_summary(db, code, with_news=with_news)
             out["profile"] = s.get("profile")
             out["price"] = {k: s["price"].get(k) for k in ("as_of", "close", "returns", "relative") if s.get("price", {}).get("available")}
             out["news"] = (s.get("news") or {}).get("items", [])[:10]
@@ -79,12 +79,12 @@ def _parse_json(text: str) -> dict:
 
 def extract_company(db: Session, c: Company, client=None) -> dict:
     client = client or _client()
-    material = _material(db, c)
+    mat = material(db, c)
     resp = client.messages.create(
         model=settings.extractor_model,
         max_tokens=4096,
         system=SYSTEM,
-        messages=[{"role": "user", "content": f"目標公司：{c.id} {c.name}\n今天：{date.today().isoformat()}\n材料（JSON）：\n{json.dumps(material, ensure_ascii=False, default=str)[:60000]}"}],
+        messages=[{"role": "user", "content": f"目標公司：{c.id} {c.name}\n今天：{date.today().isoformat()}\n材料（JSON）：\n{json.dumps(mat, ensure_ascii=False, default=str)[:60000]}"}],
     )
     if resp.stop_reason == "refusal":
         return {"company": c.id, "skipped": "refusal"}
@@ -92,7 +92,7 @@ def extract_company(db: Session, c: Company, client=None) -> dict:
     data = _parse_json(text)
     items: list[dict] = []
     src = f"LLM 抽取（{settings.extractor_model}）自引擎材料：公司基本資料、月營收、Google News 標題"
-    evidence = [{"title": n.get("title"), "url": n.get("link"), "date": n.get("published")} for n in material.get("news", [])[:5]]
+    evidence = [{"title": n.get("title"), "url": n.get("link"), "date": n.get("published")} for n in mat.get("news", [])[:5]]
     if data.get("profile"):
         items.append({"kind": "brief", "payload": {"company_id": c.id, "kind": "profile", "content": data["profile"], "date": date.today().isoformat(), "sources": evidence}, "source": src, "confidence": "medium", "created_by": CREATED_BY, "rationale": "沒有公司簡介", "evidence": evidence})
     if data.get("highlights"):

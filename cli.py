@@ -94,6 +94,21 @@ def main(argv: list[str] | None = None) -> int:
     kh = ksub.add_parser("holdings", help="load / refresh ETF constituents as holding edges")
     kh.add_argument("fund", help="TW:0050, TW:00981A (fetched from MoneyDJ) or any id with --file")
     kh.add_argument("--file", default=None, help="JSON {as_of, source, fund_name, rows:[{company_id|code|name, name, weight_pct}]}")
+    ag = sub.add_parser("agents", help="API keys for external agents (Grok bot, Claude sessions, scripts)")
+    agsub = ag.add_subparsers(dest="acmd", required=True)
+    agc = agsub.add_parser("create", help="issue a key (printed once)")
+    agc.add_argument("name")
+    agc.add_argument("--scopes", default="market:read,knowledge:propose", help="comma separated: market:read, knowledge:propose, personal:read")
+    agc.add_argument("--as", dest="acting", default=None, help="username the agent acts as (default: first admin)")
+    agc.add_argument("--rate", type=int, default=60, help="requests per minute")
+    agc.add_argument("--note", default=None)
+    agsub.add_parser("list", help="list keys (never shows secrets)")
+    agr = agsub.add_parser("rotate", help="replace the secret of a key (printed once)")
+    agr.add_argument("name")
+    agd = agsub.add_parser("disable", help="disable a key")
+    agd.add_argument("name")
+    age = agsub.add_parser("enable", help="re-enable a key")
+    age.add_argument("name")
     sub.add_parser("update", help="run daily prices + institutional + margin + alert evaluation")
 
     b = sub.add_parser("backfill", help="backfill daily history for a code")
@@ -160,6 +175,37 @@ def main(argv: list[str] | None = None) -> int:
                 u.disabled = args.ucmd == "disable"
                 db.commit()
                 print(f"{u.username} {'disabled' if u.disabled else 'enabled'}")
+        return 0
+
+    if args.cmd == "agents":
+        from app.models import User
+        from app.services import agents
+        from app.services import auth as _auth
+
+        with session_scope() as db:
+            if args.acmd == "list":
+                for k in agents.list_keys(db):
+                    print(f"{k['id']:>3}  {k['name']:<20} {k['prefix']}...  as={k['acting_username']:<10} {','.join(k['scopes']):<40} {k['rate_per_minute']:>5}/min  last={k['last_used_at'] or '-':<19} {'DISABLED' if k['disabled'] else ''}")
+                return 0
+            if args.acmd == "create":
+                acting = db.query(User).filter_by(username=args.acting.lower()).first() if args.acting else _auth.ensure_admin(db)
+                if acting is None:
+                    print("no such user")
+                    return 1
+                k, raw = agents.create_key(db, args.name, [x.strip() for x in args.scopes.split(",") if x.strip()], acting.id, args.rate, args.note)
+                print(f"created agent {k.name} (id={k.id}) acting as {acting.username}; scopes {','.join(k.scopes)}")
+                print("key (shown once):", raw)
+                return 0
+            k = agents.get_by_name(db, args.name)
+            if k is None:
+                print("no such agent")
+                return 1
+            if args.acmd == "rotate":
+                print("new key (shown once):", agents.rotate_key(db, k))
+            elif args.acmd in ("disable", "enable"):
+                k.disabled = args.acmd == "disable"
+                db.commit()
+                print(f"{k.name} {'disabled' if k.disabled else 'enabled'}")
         return 0
 
     if args.cmd == "knowledge":

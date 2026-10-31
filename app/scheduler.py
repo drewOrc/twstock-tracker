@@ -161,7 +161,14 @@ def job_knowledge_extract(db) -> dict:
     return extractor.run(db)
 
 
+def job_tunnel_watch(db) -> dict:
+    from .services import tunnel
+
+    return tunnel.watch(db)
+
+
 JOBS: dict[str, Callable] = {
+    "tunnel_watch": job_tunnel_watch,
     "knowledge_extract": job_knowledge_extract,
     "etf_holdings": job_etf_holdings,
     "knowledge_sync": job_knowledge_sync,
@@ -226,6 +233,21 @@ def _realtime_tick() -> None:
 
 
 # ---------------------------------------------------------------------- schedule
+def _tunnel_tick() -> None:
+    """Every minute; only writes a job_runs row (and notifies) when the public URL changed."""
+    from .services import tunnel
+
+    cur = tunnel.current()
+    if cur is None or cur["kind"] != "temporary":
+        return
+    try:
+        seen = tunnel.SEEN_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        seen = ""
+    if seen != cur["url"]:
+        run_job("tunnel_watch")
+
+
 def _cron(**kw) -> CronTrigger:
     return CronTrigger(day_of_week="mon-fri", timezone=settings.timezone, **kw)
 
@@ -257,6 +279,7 @@ def start() -> None:
     )
     # system watchlists (CRM 持有 / 觀察, 掃描候選, 今日警示): cheap, so keep them fresh all day
     scheduler.add_job(run_job, IntervalTrigger(minutes=15), args=["sync_lists"], id="sync_lists", name="sync system watchlists (15 min)")
+    scheduler.add_job(_tunnel_tick, IntervalTrigger(minutes=1), id="tunnel_watch", name="announce a new public URL (1 min)")
     # official company facts for the knowledge graph (monthly revenue lands by the 10th; quarterly
     # statements mid-May / Aug / Nov / end of March; shares change rarely)
     scheduler.add_job(run_job, _cron(hour=19, minute=30), args=["mops_monthly"], id="mops_monthly", name="MOPS monthly revenue 19:30")

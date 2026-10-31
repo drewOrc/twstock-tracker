@@ -34,6 +34,10 @@ scripts\tunnel_install.ps1 -Hostname stocks.你的網域.com -Start   # 正式�
 
 可再加 Cloudflare Access 當外圍第二層；應用層身份仍以本機帳號為準。
 
+**不買網域也能有固定網址：Tailscale Funnel**。`scripts\funnel_install.ps1` 會裝 Tailscale、請你在瀏覽器登入一次、開啟 Funnel 指向引擎，網址是 `https://<電腦名>.<tailnet>.ts.net`，固定不變、由 Tailscale 的服務在開機時自動恢復，並把它寫進 `.env` 的 `PUBLIC_URL`（引擎的 `/api/health` 與「系統」頁會顯示）。Funnel 轉發時帶 `X-Forwarded-Proto: https`，cookie 會自動加 Secure。關閉：`tailscale funnel --https=443 off`。
+
+還沒有網域、也不想用 Tailscale 時，可以先把**臨時隧道**服務化：`scripts\tunnel_quick_install.ps1 -Start` 登記同名的 `TWStock Tunnel` 任務，開機自動跑 `*.trycloudflare.com` 網址並在斷線後重連。網址每次重啟都會變，所以引擎把目前的網址寫在 `data\tunnel-url.txt`、顯示在 `/api/health` 的 `public_url` 與「系統」頁，並在網址改變時透過 LINE / Email 推播（`tunnel_watch`）。之後有網域再跑 `tunnel_install.ps1 -Hostname …`，同名任務會被固定隧道取代；固定網址也可直接設 `.env` 的 `PUBLIC_URL`。
+
 ```bash
 python cli.py users create mom --name 媽媽 --line Uxxxxxxxx     # 建成員（會提示輸入密碼）
 python cli.py users create drew --admin
@@ -79,6 +83,7 @@ python cli.py knowledge registry
 - **ETF 成分股** `etf_holdings`（每週二 07:00，或 `cli.py knowledge holdings 0050`）：從 MoneyDJ 全部持股頁讀成分股與權重，寫成 `holding` 邊（成分股 → ETF，`revenue_share` = 權重），權重歷史留在 `knowledge_edge_weights`，退出的成分股自動移除。美股 ETF 用 `--file seeds/holdings_voo_2026-09-30.json` 這種檔案載入。
 - **提案佇列**：`POST /api/market/knowledge/proposals`（任何登入者、服務金鑰、agent）送 `{kind, payload, rationale, evidence, source, confidence}`；同一件事待審中重複提出只會更新不會重複；管理員 `POST /proposals/decide {ids, approve}` 批次核准，核准即透過 `services/knowledge.py` 套用並記 `applied_ref`，失敗標 `failed` 留原因。`GET /knowledge/todo` 列出還缺簡介、近期重點過期、沒有關係、關係沒來源的公司，給 agent 當工作清單。
 - **種子檔**：`seeds/supply_chain_2026-10.json` 是 agent 整理的 0050 / 00981A / VOO 成分股簡介與供應鏈關係，`cli.py knowledge propose-seed <file>` 整包送進佇列，`cli.py knowledge approve [--kind] [--ids]` 從命令列核准。
+- **Agent 金鑰**（給 Grok bot、Claude session、腳本）：管理員在「帳號管理 → Agent 金鑰」發放，或 `python cli.py agents create grok --scopes market:read,knowledge:propose --as drew --rate 60`。金鑰 `twa_…` 只顯示一次、資料庫只存 SHA-256；帶法 `Authorization: Bearer twa_…`（或 `X-Agent-Key`）。範圍：`market:read` 讀 `/api/market/*`、`knowledge:propose` 只能 `POST /knowledge/proposals`、`personal:read` 讀代表使用者的 `/api/me/*`；agent 永遠進不了 `/api/admin/*` 與知識層的直接寫入端點，提案一律標 `agent:<名稱>`，每把金鑰有每分鐘上限、可換金鑰、可停用。agent 的工作入口是 `GET /api/market/knowledge/tasks?limit=5`：回傳還缺簡介 / 近期重點 / 關係的公司，每家附上引擎打包好的材料（基本資料、月營收、已知關係、新聞標題），agent 讀完用 `POST /knowledge/proposals/batch` 回答。
 - **LLM 抽取器**（選用）：`EXTRACTOR_ENABLED=true` 加 `ANTHROPIC_API_KEY`（或 `ant auth login`），`knowledge_extract` 每晚 20:30 讀待補清單，把引擎自己的材料（基本資料、月營收、新聞標題）交給 Claude 產出簡介、近期重點與供應鏈關係，**全部只進提案佇列**，帶信心度與新聞證據；`cli.py knowledge extract --company TW:2330` 單跑一家。
 
 ## 統一介面：引擎 + Stock CRM

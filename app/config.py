@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     extractor_model: str = "claude-opus-5-5"
     extractor_batch: int = 8  # companies per run
 
+    # public address (set when a named tunnel / fixed hostname exists; a quick tunnel is read from data/tunnel-url.txt)
+    public_url: str = ""
+
     # http
     http_timeout: float = 20.0
     request_delay_seconds: float = 1.5  # TWSE throttles ~3 requests / 5 seconds

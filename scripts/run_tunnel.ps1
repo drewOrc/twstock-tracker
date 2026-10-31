@@ -10,6 +10,7 @@ $supLog = Join-Path $logDir "tunnel-supervisor.log"
 $errLog = Join-Path $logDir "tunnel.log"
 $cf = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
 if (-not $cf) { $cf = "$env:ProgramFiles\cloudflared\cloudflared.exe" }
+if (-not (Test-Path $cf)) { $cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe" }
 if (-not (Test-Path $cf)) { "$(Get-Date -Format s) cloudflared not found" | Out-File -Append -Encoding utf8 $supLog; exit 1 }
 
 while ($true) {

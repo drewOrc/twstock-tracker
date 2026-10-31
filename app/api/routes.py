@@ -28,7 +28,7 @@ from ..schemas import (
     WatchlistPatch,
     WatchlistUpdate,
 )
-from ..services import alerts, breadth, screener
+from ..services import alerts, breadth, screener, tunnel
 from ..services import market_data as md
 from ..services import watchlists as wls
 from ..services.indicators import compute_all
@@ -79,6 +79,7 @@ async def health():
         "scheduler": {"enabled": settings.scheduler_enabled, "running": sched.scheduler.running},
         "channels": notifier.channels(),
         "crm": await crm_proxy.crm_health(),
+        "public_url": tunnel.current(),
     }
 
 
