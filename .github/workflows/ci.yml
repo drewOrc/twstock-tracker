@@ -47,6 +47,31 @@ jobs:
               r = c.get("/api/alerts/rule-types"); assert r.status_code == 200 and len(r.json()) > 5
               r = c.get("/api/screener/presets"); assert r.status_code == 200
               r = c.get("/api/market/breadth"); assert r.status_code == 200
+              r = c.get("/api/crm/enums"); assert r.status_code == 502  # CRM not running in CI -> clean 502
               r = c.get("/"); assert r.status_code == 200 and "<title>" in r.text
           print("smoke OK")
           EOF
+
+  web:
+    name: Frontend (Vite + React + TS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Build output exists
+        run: test -f dist/index.html && ls dist/assets | head

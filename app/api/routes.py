@@ -39,7 +39,9 @@ def _clean(v):
 
 # ---------------------------------------------------------------------- health / meta
 @router.get("/health")
-def health():
+async def health():
+    from . import crm_proxy
+
     return {
         "status": "ok",
         "app": settings.app_name,
@@ -47,6 +49,7 @@ def health():
         "trading_hours": is_trading_hours(),
         "scheduler": {"enabled": settings.scheduler_enabled, "running": sched.scheduler.running},
         "channels": notifier.channels(),
+        "crm": await crm_proxy.crm_health(),
     }
 
 
@@ -76,13 +79,14 @@ def stock_indicators(code: str, limit: int = 250, db: Session = Depends(get_db))
 
 
 @router.get("/stocks/{code}/institutional")
-def stock_institutional(code: str, limit: int = 60, db: Session = Depends(get_db)):
-    return [to_dict(r) for r in md.load_institutional(db, code.upper(), limit)]
+def stock_institutional(code: str, limit: int = 60, days: int | None = None, db: Session = Depends(get_db)):
+    """Newest first. `days` is an alias for `limit` (one row per trading day)."""
+    return [to_dict(r) for r in md.load_institutional(db, code.upper(), days or limit)]
 
 
 @router.get("/stocks/{code}/margin")
-def stock_margin(code: str, limit: int = 60, db: Session = Depends(get_db)):
-    return [to_dict(r) for r in md.load_margin(db, code.upper(), limit)]
+def stock_margin(code: str, limit: int = 60, days: int | None = None, db: Session = Depends(get_db)):
+    return [to_dict(r) for r in md.load_margin(db, code.upper(), days or limit)]
 
 
 # ---------------------------------------------------------------------- watchlist
@@ -146,8 +150,16 @@ def remove_watchlist(code: str, db: Session = Depends(get_db)):
 
 # ---------------------------------------------------------------------- realtime quotes
 @router.get("/quotes")
-def get_quotes(db: Session = Depends(get_db)):
-    return [to_dict(q) for q in md.load_realtime(db)]
+def get_quotes(codes: str | None = None, db: Session = Depends(get_db)):
+    """Latest realtime snapshot per code (price, change, change_pct, volume in lots, trade_date/time).
+    `codes=2330,2382` filters; codes outside the watchlist are fetched live from the MIS feed."""
+    wanted = {c.strip().upper() for c in codes.split(",") if c.strip()} if codes else None
+    rows = {q.code: to_dict(q) for q in md.load_realtime(db, wanted)}
+    missing = sorted(wanted - rows.keys()) if wanted else []
+    if missing:
+        for q in md.mis.fetch_quotes([(c, "TWSE") for c in missing] + [(c, "TPEX") for c in missing]):
+            rows.setdefault(q["code"], {k: v for k, v in q.items() if k not in ("limit_up", "limit_down")})
+    return list(rows.values())
 
 
 @router.post("/quotes/refresh")
