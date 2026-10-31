@@ -302,3 +302,10 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
   .grid2, .board, .mk-grid, .mk-grid.three { grid-template-columns: 1fr; }
   .row3, .row4 { grid-template-columns: 1fr 1fr; }
 }
+
+/* graph page: scope toolbar, company picker */
+.toolbar { gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.dropdown { position: absolute; top: 100%; left: 0; z-index: 20; min-width: 20em; max-height: 280px; overflow-y: auto; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.dropdown .item { padding: 6px 10px; cursor: pointer; font-size: 13px; }
+.dropdown .item:hover { background: var(--panel); }
+.node.seed text { font-weight: 600; }
