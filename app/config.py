@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{(BASE_DIR / 'data' / 'twstock.db').as_posix()}"
     timezone: str = "Asia/Taipei"
 
+    # logging: also write rotating files to data/logs/engine.log (needed when running as a service)
+    log_to_file: bool = True
+
     # scheduler
     scheduler_enabled: bool = True
     realtime_interval_seconds: int = 10

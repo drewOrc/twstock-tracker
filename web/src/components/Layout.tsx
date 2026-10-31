@@ -7,7 +7,7 @@ const ENGINE_TABS = [
   ["/market", "盤面分化"],
   ["/screener", "選股掃描"],
   ["/alerts", "警示"],
-  ["/jobs", "排程"],
+  ["/jobs", "系統"],
 ];
 const CRM_TABS = [
   ["/board", "看板"],

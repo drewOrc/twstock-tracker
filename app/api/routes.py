@@ -62,6 +62,14 @@ async def health():
     }
 
 
+@router.get("/health/data")
+def health_data(db: Session = Depends(get_db)):
+    """Per-table freshness against the publishing schedule, failed jobs in 24h, storage."""
+    from ..services.health import data_health
+
+    return data_health(db)
+
+
 # ---------------------------------------------------------------------- stocks
 @router.get("/stocks/search")
 def search_stocks(q: str = Query(..., min_length=1), limit: int = 20, db: Session = Depends(get_db)):

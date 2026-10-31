@@ -25,6 +25,14 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
+if settings.log_to_file:  # a service has no console: keep rotating logs under data/logs
+    from logging.handlers import RotatingFileHandler
+
+    _log_dir = BASE_DIR / "data" / "logs"
+    _log_dir.mkdir(parents=True, exist_ok=True)
+    _fh = RotatingFileHandler(_log_dir / "engine.log", maxBytes=5_000_000, backupCount=5, encoding="utf-8")
+    _fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s"))
+    logging.getLogger().addHandler(_fh)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
