@@ -1,4 +1,4 @@
-import { admin, engine, useAsync } from "../api/client";
+import { admin, engine, publicApi, useAsync } from "../api/client";
 import { useMe } from "../components/Auth";
 import { useAction, useToast } from "../components/Toast";
 import { time } from "../lib/format";
@@ -41,7 +41,7 @@ export default function Jobs() {
   const act = useAction();
   const { me } = useMe();
   const isAdmin = me?.role === "admin";
-  const health = useAsync(() => engine("/health"), [], 30000);
+  const health = useAsync(() => publicApi("/health"), [], 30000);
   const data = useAsync(() => engine("/health/data"), [], 60000);
   const jobs = useAsync(() => engine("/jobs"), [], 30000);
   const runs = useAsync<any[]>(() => engine("/jobs/runs?limit=30"), [], 20000);

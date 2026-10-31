@@ -119,7 +119,28 @@ def job_realtime_once(db) -> dict:
     return {"quotes": len(quotes), "alerts": len(events)}
 
 
+def job_mops_monthly(db) -> dict:
+    from .services import mops
+
+    return mops.run_monthly(db)
+
+
+def job_mops_quarterly(db) -> dict:
+    from .services import mops
+
+    return mops.run_quarterly(db)
+
+
+def job_mops_shares(db) -> dict:
+    from .services import mops
+
+    return mops.run_shares(db)
+
+
 JOBS: dict[str, Callable] = {
+    "mops_monthly": job_mops_monthly,
+    "mops_quarterly": job_mops_quarterly,
+    "mops_shares": job_mops_shares,
     "daily_prices": job_daily_prices,
     "institutional": job_institutional,
     "margin": job_margin,
@@ -208,6 +229,11 @@ def start() -> None:
     )
     # system watchlists (CRM 持有 / 觀察, 掃描候選, 今日警示): cheap, so keep them fresh all day
     scheduler.add_job(run_job, IntervalTrigger(minutes=15), args=["sync_lists"], id="sync_lists", name="sync system watchlists (15 min)")
+    # official company facts for the knowledge graph (monthly revenue lands by the 10th; quarterly
+    # statements mid-May / Aug / Nov / end of March; shares change rarely)
+    scheduler.add_job(run_job, _cron(hour=19, minute=30), args=["mops_monthly"], id="mops_monthly", name="MOPS monthly revenue 19:30")
+    scheduler.add_job(run_job, _cron(hour=20, minute=0), args=["mops_quarterly"], id="mops_quarterly", name="MOPS quarterly statements 20:00")
+    scheduler.add_job(run_job, CronTrigger(day_of_week="mon", hour=20, minute=30, timezone=settings.timezone), args=["mops_shares"], id="mops_shares", name="MOPS shares outstanding (Mon 20:30)")
     scheduler.start()
     log.info("scheduler started (%d jobs)", len(scheduler.get_jobs()))
 

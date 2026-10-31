@@ -24,6 +24,7 @@ from ..models import (
     Watchlist,
     WatchlistItem,
 )
+from . import knowledge as kn
 from . import market_data as md
 from .indicators import compute_all
 from .industries import MAIN_INDEX, is_common_stock, sector_name
@@ -237,6 +238,7 @@ def context_block(db: Session, code: str, user_id: int | None = None) -> dict:
     rules = db.execute(rule_stmt).scalar()
     lists = db.execute(list_stmt).all()
     return {
+        "knowledge": kn.for_stock(db, code),
         "screener": screens,
         "alert_rules": rules,
         "recent_alerts": [{"at": e.triggered_at.isoformat(timespec="seconds"), "message": e.message, "rule_type": e.rule_type} for e in events],

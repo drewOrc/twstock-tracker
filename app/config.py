@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -11,8 +12,18 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "TW Stock Tracker"
-    database_url: str = f"sqlite:///{(BASE_DIR / 'data' / 'twstock.db').as_posix()}"
+    # One SQLite file shared with the Stock CRM: knowledge_* tables are written by this engine,
+    # personal_* tables by the CRM, users/sessions by this engine (see schema_registry).
+    shared_data_dir: Path = BASE_DIR.parent / "data"
+    database_url: str = ""  # default: sqlite:///<shared_data_dir>/market.db
+    legacy_database: Path = BASE_DIR / "data" / "twstock.db"  # copied into market.db on first start
     timezone: str = "Asia/Taipei"
+
+    @model_validator(mode="after")
+    def _default_database(self):
+        if not self.database_url:
+            self.database_url = f"sqlite:///{(self.shared_data_dir / 'market.db').as_posix()}"
+        return self
 
     # logging: also write rotating files to data/logs/engine.log (needed when running as a service)
     log_to_file: bool = True

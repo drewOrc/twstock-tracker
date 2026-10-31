@@ -41,6 +41,30 @@ python cli.py users passwd drew
 python cli.py users list
 ```
 
+## 共用資料庫與知識層
+
+引擎與 Stock CRM 從 v0.5 起共用同一個 SQLite 檔 `<workspace>/data/market.db`（WAL），不再各自一個資料庫。分層不是「哪個程式的表」而是「通用知識 vs 個人化」，並用表的擁有權落實：
+
+| 層 | 表 | 誰寫 | 誰讀 |
+| --- | --- | --- | --- |
+| 通用知識 knowledge | `stocks`、`daily_prices`、法人 / 融資券 / 盤面 / 掃描 / 即時報價，以及 `knowledge_companies`（圖節點 `TW:2330` / `US:NVDA`）、`knowledge_edges`（客戶 → 供應商，`revenue_share`）、`knowledge_edge_weights`（權重歷史）、`knowledge_company_briefs`（簡介 / 近期重點，append-only）、`knowledge_financials_ytd`（季報 YTD）、`knowledge_metrics`（月營收、單季營收、毛利率、費用、EPS、股數的**實際值**） | 引擎 | 兩邊 |
+| 個人化 personal | 引擎的 `watchlists` / `alert_rules` / `alert_events`；CRM 的 `personal_*`（卡片、驅動因子、檢查點、互動、提醒、提案、分層規則、模型值、個人筆記） | 各自 | 各自（引擎透過 CRM REST 讀卡片） |
+| 帳號 auth | `users`、`sessions` | 引擎 | CRM 只讀身份欄位，不讀 `password_hash` |
+| 營運 ops | `job_runs`、`schema_registry`、CRM 的 `crm_maintenance_log` | 各自 | 兩邊 |
+
+- `schema_registry` 記錄每張表的層、擁有者與寫入者，`python cli.py knowledge registry` 可以列出。
+- **知識層的寫入通道**：引擎自己抓的官方事實（見下）直接寫；其他人（CRM 核准 knowledge 範圍的提案、agent、維護腳本）透過 `/api/market/knowledge/*` 寫，需要管理員身份（登入的 admin，或 `X-Service-Token` + 管理員的 `X-User-Id`），每筆帶 `source` / `confidence` / `created_by`（`user:drew`、`agent:claude`、`system:mops`）。
+- **官方事實由引擎抓**：`mops_monthly`（月營收，週一至五 19:30）、`mops_quarterly`（季報 YTD + 單季差分，20:00）、`mops_shares`（發行股數，週一 20:30）從證交所 / 櫃買開放資料寫入 `knowledge_metrics` / `knowledge_financials_ytd`，對象是 `knowledge_companies` 裡 market=TW 且非 ETF 的公司。季報開放資料是年初至今，單季數字要前一季也在庫才算得出來。
+- **第一次啟動**：若 `market.db` 不存在而舊的 `data/twstock.db` 在，引擎會用 SQLite 線上備份把它整個複製過去（舊檔留著當備份，旁邊有 `MOVED_TO_market.db.txt`）。CRM 原本的 `companies` / `edges` / `company_briefs` / `financials_ytd` / `metrics(actual)` 用 `python cli.py knowledge import-crm` 唯讀複製進 `knowledge_*`（id 沿用，可重複執行）。
+- 位置可用 `.env` 的 `SHARED_DATA_DIR` 或 `DATABASE_URL` 覆寫；CRM 端把 `STOCKCRM_DB` 指到同一個檔。
+
+```bash
+python cli.py knowledge import-crm                 # 從 ../stockcrm/data/stockcrm.db 匯入（--source 指定）
+python cli.py knowledge fetch all                  # monthly | quarterly | shares | all
+python cli.py knowledge stats
+python cli.py knowledge registry
+```
+
 ## 統一介面：引擎 + Stock CRM
 
 引擎與 [Stock CRM](../stockcrm)（供應鏈投資日誌）是兩個獨立後端，由同一個 React 前端整合：
@@ -128,10 +152,10 @@ powershell -ExecutionPolicy Bypass -File scripts\service_uninstall.ps1          
 - **profile**：證交所 / 櫃買公司基本資料（全名、英文簡稱、董事長、總經理、成立 / 上市日、實收資本額、發行股數、網址、地址、產業名稱），每週隨公司清單更新；ETF 沒有。
 - **price**：收盤與即時價、1 / 5 / 20 / 60 / 120 / 250 日漲幅並對比加權指數（`relative`）、所屬類股均值與 20 日排名、距區間高低點（資料滿 240 日才標 52 週）、MA5 / 20 / 60 / 120 與多空排列、RSI、KD、量能比。
 - **chips**：外資 / 投信 / 自營 5 日與 20 日淨買超（張）、外資連買天數、融資餘額 20 日變化。
-- **context**：最新選股掃描名次與標籤、啟用警示數、最近 5 次觸發、所屬清單。
+- **context**：最新選股掃描名次與標籤、啟用警示數、最近 5 次觸發、所屬清單；`knowledge` 為共用知識層的簡介 / 近期重點與供應鏈鄰居（客戶、供應商、所屬 ETF）。
 - **news**：Google News RSS 以公司名稱查詢的最近 10 則標題（15 分鐘快取，`?news=false` 可略過；`GET /api/stocks/{code}/news` 單獨取）。
 
-寫成文字的「公司簡介」與「近期重點」屬於 Stock CRM 的 `company_briefs`（由 agent 讀本端點與月營收後產生、走提案核准），前端在卡片的「概況」檢視同時顯示兩邊。
+寫成文字的「公司簡介」與「近期重點」存在共用知識層的 `knowledge_company_briefs`（agent 讀本端點與月營收後產生、在 CRM 走提案核准、核准時寫入 `POST /api/market/knowledge/briefs`），個股概況的「供應鏈與簡介」區塊直接顯示。
 
 ## 與 Stock CRM 的互嵌（建卡 → 目標價 → 警示 → 證據鏈）
 
@@ -174,6 +198,8 @@ python cli.py sync-lists
 | 21:35、22:35 | 全市場融資融券 → 評估警示 |
 | 週日 06:00 | 更新上市 / 上櫃公司清單 |
 | 每 15 分鐘 | 同步系統清單（CRM 持有 / 觀察、掃描候選、今日警示） |
+| 19:30、20:00 | 知識層官方事實：月營收（`mops_monthly`）、季報 YTD 與單季差分（`mops_quarterly`） |
+| 週一 20:30 | 發行股數（`mops_shares`） |
 
 每個工作跑兩次是為了容忍交易所延遲發布；寫入都是 upsert，重複執行不會產生重複資料。
 國定假日不做特別判斷：交易所當天沒有資料，工作就只是沒有新增而已。
@@ -286,13 +312,30 @@ GET    /api/screener/dates?preset=balanced
 GET    /api/screener?preset=balanced&date=&limit=30
 POST   /api/screener/run       {"preset":"chips","min_turnover":50000000,"top":30,"notify":false}
 GET    /api/jobs                                    # 排程與即時輪詢狀態
-POST   /api/jobs/{name}/run                         # daily_prices | institutional | margin | flows_backfill | market_daily | market_backfill | screener | sync_lists | stock_list | alerts_daily | full_daily | realtime
+POST   /api/jobs/{name}/run                         # daily_prices | institutional | margin | flows_backfill | market_daily | market_backfill | screener | sync_lists | stock_list | alerts_daily | full_daily | realtime | mops_monthly | mops_quarterly | mops_shares
 GET    /api/jobs/runs
 POST   /api/notify/test
 ANY    /api/crm/*                                   # 反向代理到 Stock CRM 的 /api/*（CRM 離線回 502）
+
+# 共用知識層（/api/market/knowledge；讀：登入即可，寫：管理員或服務金鑰 + 管理員 X-User-Id）
+GET    /api/market/knowledge/stats                  # 各表列數、官方資料最新期間
+GET    /api/market/knowledge/companies?q=台積&market=TW
+GET    /api/market/knowledge/companies/{id}         # 含邊、最新簡介 / 近期重點、metrics、financials
+PUT    /api/market/knowledge/companies/{id}         {"name":"台積電","sector":"晶圓代工","source":"...","confidence":"high"}
+GET    /api/market/knowledge/edges?company=TW:2330&relation=customer
+POST   /api/market/knowledge/edges                  {"customer_id":"US:NVDA","supplier_id":"TW:2330","revenue_share":0.12,"date":"2026-06-30","source":"10-K"}
+DELETE /api/market/knowledge/edges/{id}             # 仍被引用回 409
+GET    /api/market/knowledge/edges/{id}/weights
+POST   /api/market/knowledge/edges/{id}/weights     {"date":"2026-09-30","revenue_share":0.15}   # 同步更新邊上的最新值
+GET    /api/market/knowledge/briefs/{company_id}?kind=profile
+POST   /api/market/knowledge/briefs                 {"company_id":"TW:2330","kind":"highlights","date":"2026-10-20","content":"...","sources":[...],"created_by":"agent:claude"}
+GET    /api/market/knowledge/financials/{company_id}
+POST   /api/market/knowledge/financials             {"company_id":"TW:2330","year":2026,"quarter":2,"revenue":...}   # /financials/batch 吃陣列
+GET    /api/market/knowledge/metrics/{company_id}?metric=revenue_m
+POST   /api/market/knowledge/metrics                {"company_id":"TW:2330","metric":"revenue_m","period":"2026-09","value":511857399,"source":"..."}   # /metrics/batch 吃陣列
 ```
 
-全部無認證、只綁 127.0.0.1、回 JSON（NaN 已轉 null）。CORS 已開放，Vite 開發伺服器與其他前端可直接呼叫。
+除 `/api/health` 與登入外都需要 session（或服務金鑰），只綁 127.0.0.1、回 JSON（NaN 已轉 null）。CORS 只開給 Vite 開發伺服器。
 
 ## 通知設定
 
@@ -307,8 +350,8 @@ ANY    /api/crm/*                                   # 反向代理到 Stock CRM 
 
 ```
 app/
-  config.py            設定（.env，含 CRM_BASE_URL）
-  db.py / models.py    SQLAlchemy + SQLite（data/twstock.db）
+  config.py            設定（.env，含 SHARED_DATA_DIR、CRM_BASE_URL、CRM_FACADE_TOKEN）
+  db.py / models.py    SQLAlchemy + 共用 SQLite（<workspace>/data/market.db）、遷移、schema_registry
   utils.py             民國日期、數字解析、交易時段判斷
   datasources/
     twse.py            證交所：日線、月歷史、MI_INDEX 全市場、T86 法人、MI_MARGN 融資券、公司清單
@@ -320,6 +363,8 @@ app/
     health.py          資料健康：各表新鮮度、失敗工作、儲存空間
     stock_summary.py   個股概況：基本介紹、相對強弱、籌碼、脈絡、新聞 RSS
     crm_link.py        與 CRM 互嵌：目標價鏡射警示、警示回寫提案
+    knowledge.py       共用知識層：公司、供應鏈邊與權重歷史、簡介、季報、實際值；從 CRM 匯入
+    mops.py            證交所 / 櫃買開放資料：月營收、季報 YTD 差分、股數 → knowledge_*
     indicators.py      技術指標
     alerts.py          警示規則定義與評估
     notifier.py        LINE / Email / console
@@ -328,7 +373,8 @@ app/
     industries.py      產業別代碼對照
   scheduler.py         APScheduler 工作與排程
   api/
-    routes.py          REST API
+    routes.py          REST API（market / me / admin）
+    knowledge_routes.py  /api/market/knowledge/*
     crm_proxy.py       /api/crm/* 反向代理到 Stock CRM
   main.py              FastAPI app：API + 代理 + 伺服 web/dist（/legacy 為舊版）
 web/                   統一前端（Vite + React + TypeScript）
@@ -358,7 +404,7 @@ python -m pytest -q
 cd web && npm run build
 ```
 
-- 與 Stock CRM 的分工：引擎 repo 負責市場資料、警示、掃描、排程、通知、統一前端與代理；stockcrm repo 負責卡片、論點、供應鏈、提案、MCP server 與其資料腳本。各寫各的資料庫，API 變更先互相告知。
+- 與 Stock CRM 的分工：引擎 repo 負責通用知識層（市場資料、供應鏈圖、簡介、官方財務事實）、警示、掃描、排程、通知、帳號、統一前端與代理；stockcrm repo 負責個人化層（卡片、論點、驅動因子、提案）、MCP server 與其維護腳本。同一個資料庫、各寫各的表（`schema_registry`），表結構與 API 變更先互相告知。
 
 ## 資料來源與注意事項
 
