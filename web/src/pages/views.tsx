@@ -1,7 +1,7 @@
 /* The three views + account + admin as containers (canvas board 27 step 1). Each hosts the existing pages
  * under hash tabs so nothing is lost while pages are rebuilt one by one in later steps. */
-import { Navigate, useLocation, useParams } from "react-router-dom";
-import { crm, useAsync } from "../api/client";
+import { Link, Navigate, useLocation, useParams } from "react-router-dom";
+import { crm, engine, useAsync } from "../api/client";
 import { useMe } from "../components/Auth";
 import { useCard } from "../components/CardDrawer";
 import { StockSummary } from "../components/StockSummary";
@@ -90,14 +90,8 @@ export function StockPage() {
   const card = useCard();
   const c = code.toUpperCase();
   if (c.startsWith("TW:")) return <Navigate to={`/stock/${c.slice(3)}`} replace />;
-  if (c.startsWith("US:")) {
-    return (
-      <>
-        <div className="page-head"><h1>{c}</h1><span className="muted">美股只有知識層，沒有行情</span></div>
-        <section className="panel"><div className="empty">以 {c} 為中心的供應鏈在「結構」裡；個股頁的美股版本在第 5 步。</div></section>
-      </>
-    );
-  }
+  // any other MARKET:TICKER id (US:NVDA, KR:005930, ...) is a knowledge-only company: no quotes
+  if (/^[A-Z]{2}:/.test(c)) return <KnowledgeCompanyPage id={c} />;
   return (
     <>
       <div className="page-head">
@@ -106,6 +100,65 @@ export function StockPage() {
         <button className="ghost tiny" style={{ marginLeft: "auto" }} onClick={() => card.open(c)}>打開卡片</button>
       </div>
       <section className="panel summary-wrap"><StockSummary code={c} /></section>
+    </>
+  );
+}
+
+const MARKET_LABEL: Record<string, string> = { US: "美股", KR: "韓股" };
+
+/** Companies outside Taiwan live only in the knowledge layer: profile, highlights and relations. */
+function KnowledgeCompanyPage({ id }: { id: string }) {
+  const q = useAsync<any>(() => engine(`/knowledge/companies/${encodeURIComponent(id)}`), [id]);
+  const market = id.split(":", 1)[0];
+  const d = q.data;
+  const chip = (cid: string, name: string | null, label: string, share: number | null, title: string) => (
+    <Link key={`${label}${cid}`} to={`/stock/${encodeURIComponent(cid)}`} className="chip" title={title}>
+      {label} {name ?? cid}{share != null ? ` ${Math.round(share * 100)}%` : ""}
+    </Link>
+  );
+  return (
+    <>
+      <div className="page-head">
+        <h1>{d?.name ?? id}</h1>
+        <span className="muted">{id}{d?.name_en ? ` · ${d.name_en}` : ""}{d?.sector ? ` · ${d.sector}` : ""} · {MARKET_LABEL[market] ?? market}只有知識層，沒有行情</span>
+      </div>
+      <section className="panel">
+        {q.error && <div className="empty">知識層沒有 {id}：{q.error}</div>}
+        {!q.error && !d && <div className="kv">載入中…</div>}
+        {d && (
+          <>
+            {d.briefs?.profile ? <p className="brief">{d.briefs.profile.content}</p> : <div className="kv">還沒有公司簡介。</div>}
+            {d.briefs?.highlights && <p className="brief"><span className="k">近期重點 {d.briefs.highlights.date}</span>{d.briefs.highlights.content}</p>}
+            <h4>客戶 <span className="kv">向 {d.name} 採購；百分比為佔 {d.name} 營收比重</span></h4>
+            <div className="ctx-line">
+              {(d.edges?.customers ?? []).filter((e: any) => e.relation !== "holding").map((e: any) => chip(e.customer_id, e.customer_name, e.relation === "partner" ? "夥伴" : "客戶", e.revenue_share, e.source ?? ""))}
+              {!(d.edges?.customers ?? []).some((e: any) => e.relation !== "holding") && <span className="kv">沒有記錄。</span>}
+            </div>
+            <h4>供應商 <span className="kv">{d.name} 向他們採購；百分比為佔對方營收比重</span></h4>
+            <div className="ctx-line">
+              {(d.edges?.suppliers ?? []).filter((e: any) => e.relation !== "holding").map((e: any) => chip(e.supplier_id, e.supplier_name, e.relation === "partner" ? "夥伴" : "供應商", e.revenue_share, e.source ?? ""))}
+              {!(d.edges?.suppliers ?? []).some((e: any) => e.relation !== "holding") && <span className="kv">沒有記錄。</span>}
+            </div>
+            {(d.edges?.suppliers ?? []).some((e: any) => e.relation === "holding") && (
+              <>
+                <h4>所屬 ETF</h4>
+                <div className="ctx-line">
+                  {(d.edges.suppliers as any[]).filter((e) => e.relation === "holding").map((e) => chip(e.supplier_id, e.supplier_name, "持有於", e.revenue_share, "成分股權重"))}
+                </div>
+              </>
+            )}
+            {(d.edges?.customers ?? []).some((e: any) => e.relation === "holding") && (
+              <>
+                <h4>成分股 <span className="kv">權重</span></h4>
+                <div className="ctx-line">
+                  {(d.edges.customers as any[]).filter((e) => e.relation === "holding").map((e) => chip(e.customer_id, e.customer_name, "", e.revenue_share, "成分股權重"))}
+                </div>
+              </>
+            )}
+            <p className="hint">完整的關係圖在「結構」，可以把 {id} 加進自選範圍。</p>
+          </>
+        )}
+      </section>
     </>
   );
 }
