@@ -1,0 +1,15 @@
+{
+  "created_by": "agent:claude",
+  "note": "使用者要求補上台積電與科磊的關係。新增科磊公司節點與簡介，以及台積電、三星對科磊的客戶邊。依 KLA FY2025 10-K（會計年度至 2025-06-30）主要客戶揭露整理，2026-11-01；revenue_share 為估計值。以提案送入。",
+  "default_source": "KLA FY2025 10-K 主要客戶揭露（https://www.sec.gov/Archives/edgar/data/319201/000031920125000024/klac-20250630.htm），agent 整理 2026-11-01",
+  "companies": [
+    {"id": "US:KLAC", "name": "科磊", "name_en": "KLA", "sector": "半導體設備"}
+  ],
+  "profiles": [
+    {"company_id": "US:KLAC", "content": "美國科磊（KLA），半導體製程控制設備龍頭：晶圓缺陷檢測（光學、電子束）、量測（疊對、線寬、薄膜）、光罩檢測與良率分析軟體，另有裝機後的維修服務。市佔遠高於應材、日立高新等對手。製程越先進、步驟越多，每片晶圓的檢測與量測需求越高，先進封裝（CoWoS 等）也帶動需求。10-K 揭露台積電在 FY2023–FY2025 每年都超過營收 10%；中國客戶比重高，受美國出口管制影響。"}
+  ],
+  "edges": [
+    {"customer_id": "TW:2330", "supplier_id": "US:KLAC", "revenue_share": 0.15, "confidence": "medium", "source": "KLA FY2025 10-K：台積電在 FY2023–FY2025 每年都超過營收 10%；確切比重未揭露，0.15 為估計值", "notes": "檢測、量測、光罩檢測設備與服務"},
+    {"customer_id": "KR:005930", "supplier_id": "US:KLAC", "revenue_share": null, "confidence": "medium", "source": "KLA 10-K：三星曾列為超過營收 10% 的客戶（FY2023）；近年比重不明", "notes": "檢測、量測設備"}
+  ]
+}
